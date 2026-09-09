@@ -1,5 +1,7 @@
 import type { EventMarket } from "@eventrail/types";
 
+export * from "./order-book.js";
+
 export function impliedProbability(price: number): number {
   if (!Number.isFinite(price)) return 0;
   return Math.min(1, Math.max(0, price));

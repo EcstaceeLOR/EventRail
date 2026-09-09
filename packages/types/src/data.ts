@@ -155,6 +155,8 @@ export const ExecutableQuoteSchema = z.object({
   side: z.enum(["buy", "sell"]),
   requestedQuantity: UnsignedIntegerStringSchema,
   filledQuantity: UnsignedIntegerStringSchema,
+  availableQuantity: UnsignedIntegerStringSchema,
+  minimumFillQuantity: UnsignedIntegerStringSchema,
   quoteQuantity: UnsignedIntegerStringSchema,
   averagePrice: UnsignedIntegerStringSchema.nullable(),
   worstPrice: UnsignedIntegerStringSchema.nullable(),
