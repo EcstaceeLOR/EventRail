@@ -1,6 +1,6 @@
 # DreamDEX Shannon integration spike
 
-Status: Read path verified; signer-dependent write evidence pending  
+Status: Complete; read, filled IOC, finalization, and redemption verified  
 SDK: `@somnia-chain/markets-sdk@0.29.0`  
 Network: Somnia Shannon (`50312`)
 
@@ -22,9 +22,12 @@ DREAMDEX_LIVE_WRITE=1
 
 After the account has a finalized winning position, inspect claimable entries and execute their batch redemption:
 
-```bash
-DREAMDEX_PRIVATE_KEY=0x... DREAMDEX_REDEEM=1 pnpm --filter @eventrail/dreamdex-adapter spike:shannon
+```dotenv
+DREAMDEX_LIVE_WRITE=0
+DREAMDEX_REDEEM=1
 ```
+
+Then rerun `pnpm --filter @eventrail/dreamdex-adapter spike:shannon`.
 
 Never use a mainnet key. The script validates but does not print the private key. Writes are disabled unless the corresponding flag is exactly `1`.
 
@@ -57,6 +60,33 @@ For redemption, `client.getClaimable(account)` prepares exact `(marketId, outcom
 - An IOC is not proof of a fill. The decoded `fills` array must be non-empty.
 - Redemption must use `getClaimable`; `winningOutcome` is not meaningful before `isResolved` is true.
 
-## Remaining acceptance evidence
+## Confirmed write and redemption evidence
 
-The workspace does not contain a funded Shannon signer, so no transaction was fabricated or submitted during this run. To finish issue #14, attach a real IOC transaction hash with at least one decoded fill, then—after that position settles—attach the confirmed redemption transaction hash. Both hashes should link to the Shannon explorer and be copied into this document without committing the key.
+All transactions below were signed by a disposable Shannon-only account. No private key is stored in Git or included in this evidence.
+
+### Filled IOC
+
+At `2026-09-09T02:34:21.988Z`, the spike selected market `0x00000000000000000000000000000000000000000000000000000000000179b1` and read source block `483480571`.
+
+- TestUSDC faucet: [`0xa37eebc65a1e17bc20a570d4b2bf72bdc4b1a2c190efaba315a43c97db83a0af`](https://shannon-explorer.somnia.network/tx/0xa37eebc65a1e17bc20a570d4b2bf72bdc4b1a2c190efaba315a43c97db83a0af)
+- BUY YES IOC: [`0x56e955390848290f769c6b74823a102bf1ef266f90df1dfb6c6a7946a041d301`](https://shannon-explorer.somnia.network/tx/0x56e955390848290f769c6b74823a102bf1ef266f90df1dfb6c6a7946a041d301)
+- Receipt: success, with one decoded fill of `1000` units at raw YES price `70000`.
+
+That market resolved NO, correctly leaving the YES position non-claimable. To verify redemption deterministically, the test acquired the minimum quantity of both outcomes on the same subsequent five-minute market.
+
+### Deterministic settlement position
+
+Market `0x00000000000000000000000000000000000000000000000000000000000179c0` asked “ETH closes at or above its opening price.” Both transactions succeeded with a decoded `1000`-unit fill:
+
+- BUY YES IOC: [`0xb414c937c62d125c47f74d89deb9bf58f84d32d90736ff4b2bc0ed63fdbef211`](https://shannon-explorer.somnia.network/tx/0xb414c937c62d125c47f74d89deb9bf58f84d32d90736ff4b2bc0ed63fdbef211), filled at raw YES price `620000`.
+- BUY NO IOC: [`0xdbc16fba5dcde7c0bd9490f2a74ccca6f55c3f6f5e69fe00eb70bd2736d75d19`](https://shannon-explorer.somnia.network/tx/0xdbc16fba5dcde7c0bd9490f2a74ccca6f55c3f6f5e69fe00eb70bd2736d75d19), filled at raw YES price `591000`.
+
+The chain finalized the market as a NO win (`winningOutcome: 1`). `getClaimable` prepared one entry for `outcomeIdx: 1`, amount `1000`.
+
+### Redemption
+
+- Batch redemption: [`0x75a212061f330885fa46ac1ade5fc3bd24f7d564a3503f18794a06f52daf5628`](https://shannon-explorer.somnia.network/tx/0x75a212061f330885fa46ac1ade5fc3bd24f7d564a3503f18794a06f52daf5628)
+- Receipt: success at block `483484345`, gas used `504686`.
+- Verification: a post-receipt `getClaimable` returned an empty list.
+
+One intervening IOC was rejected with `ImmediateOrCancelNoFill` after its observed best quote moved. This validates the stale-state handling requirement: a no-fill is surfaced as a typed SDK revert and is never reported as a successful trade.
