@@ -13,10 +13,11 @@ pnpm install
 pnpm --filter @eventrail/dreamdex-adapter spike:shannon
 ```
 
-The command requires no wallet and sends no transaction. To submit the smallest pool-valid YES IOC using a funded, disposable Shannon account, keep the key outside files and opt in explicitly:
+The command requires no wallet and sends no transaction. To submit the smallest pool-valid YES IOC, use a disposable Shannon account funded with STT for gas. Copy `.env.example` to the ignored root `.env.local`, set the key and write flag there, then rerun the command. The script mints test collateral through DreamDEX's TestUSDC faucet when the account is short.
 
-```bash
-DREAMDEX_PRIVATE_KEY=0x... DREAMDEX_LIVE_WRITE=1 pnpm --filter @eventrail/dreamdex-adapter spike:shannon
+```dotenv
+DREAMDEX_PRIVATE_KEY=0x...
+DREAMDEX_LIVE_WRITE=1
 ```
 
 After the account has a finalized winning position, inspect claimable entries and execute their batch redemption:

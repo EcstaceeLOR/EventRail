@@ -13,6 +13,7 @@ const redeem = process.env.DREAMDEX_REDEEM === "1";
 if ((liveWrite || redeem) && !/^0x[0-9a-fA-F]{64}$/.test(privateKey ?? "")) {
   throw new Error("Set DREAMDEX_PRIVATE_KEY to a funded Shannon-only key before enabling writes");
 }
+const signerAccount = privateKey ? privateKeyToAccount(privateKey) : undefined;
 
 const exchange = new SomniaMarkets({
   indexerUrl: INDEXER_URL,
@@ -25,7 +26,7 @@ const publicClient = createPublicClient({ chain: somniaShannon, transport: http(
 
 const markets = await exchange.client.listLiveBinaryMarkets();
 const candidates = await Promise.all(
-  markets.slice(0, 12).map(async (market) => {
+  markets.slice(0, 32).map(async (market) => {
     try {
       const [book, onchain] = await Promise.all([
         exchange.client.getBinaryOrderBook(market.poolAddress, { depth: 5 }),
@@ -37,10 +38,13 @@ const candidates = await Promise.all(
     }
   }),
 );
-const selected = candidates.find(
-  (candidate) => candidate?.onchain.status === 1 && candidate.book.yesAsks.length > 0,
-);
-if (!selected) throw new Error("No live Shannon binary market with YES-side liquidity was found");
+const selected =
+  candidates.find(
+    (candidate) =>
+      candidate?.onchain.status === 1 &&
+      (candidate.book.yesAsks.length > 0 || candidate.book.noAsks.length > 0),
+  ) ?? candidates.find((candidate) => candidate?.onchain.status === 1);
+if (!selected) throw new Error("No active Shannon binary market was found");
 
 const block = await publicClient.getBlockNumber();
 const result = {
@@ -64,19 +68,44 @@ const result = {
 };
 
 if (liveWrite) {
+  if (!signerAccount) throw new Error("A Shannon signer is required for the live write");
+  const gasBalance = await publicClient.getBalance({ address: signerAccount.address });
+  if (gasBalance === 0n) {
+    throw new Error(`Fund Shannon gas token STT for ${signerAccount.address} before enabling writes`);
+  }
   const params = await exchange.client.getBinaryBookParams(selected.market.poolAddress);
-  const bestAsk = selected.book.yesAsks[0];
-  if (!bestAsk) throw new Error("Selected market lost its YES ask before placement");
+  const oneBase = 10n ** BigInt(selected.market.quoteDecimals);
+  const yesAsk = selected.book.yesAsks[0];
+  const noAsk = selected.book.noAsks[0];
+  const bestOffer = yesAsk ?? noAsk;
+  if (!bestOffer) throw new Error("No executable YES or NO liquidity is currently available");
+  const side = yesAsk ? "BUY_YES" : "BUY_NO";
+  const yesTermsPrice = yesAsk ? yesAsk.price : oneBase - bestOffer.price;
+  const requiredCollateral = (bestOffer.price * params.minQuantity + oneBase - 1n) / oneBase;
+  const collateralBalance = await exchange.client.getErc20Balance(
+    selected.onchain.collateral,
+    signerAccount.address,
+  );
+  let faucetTransactionHash;
+  if (collateralBalance < requiredCollateral) {
+    const faucet = await exchange.trader.faucet({
+      amount: 100n * oneBase,
+      testUsdc: selected.onchain.collateral,
+    });
+    faucetTransactionHash = faucet.hash;
+  }
   const trade = await exchange.trader.placeOrder({
     pool: selected.market.poolAddress,
-    side: "BUY_YES",
-    price: bestAsk.price,
+    side,
+    price: yesTermsPrice,
     quantity: params.minQuantity,
     orderType: ORDER_TYPE.MARKET,
     autoApprove: true,
   });
   result.trade = {
     status: "confirmed",
+    side,
+    ...(faucetTransactionHash ? { faucetTransactionHash } : {}),
     transactionHash: trade.hash,
     receiptStatus: trade.receipt.status,
     fills: trade.fills.map((fill) => ({
@@ -87,12 +116,11 @@ if (liveWrite) {
   };
 }
 
-if (privateKey) {
-  const account = privateKeyToAccount(privateKey);
-  const claimable = await exchange.client.getClaimable(account.address);
+if (signerAccount) {
+  const claimable = await exchange.client.getClaimable(signerAccount.address);
   result.redemption = {
     status: claimable.length > 0 ? "prepared" : "nothing-claimable",
-    account: account.address,
+    account: signerAccount.address,
     entries: claimable.map((entry) => ({
       marketId: entry.marketId,
       outcomeIdx: entry.outcomeIdx,
