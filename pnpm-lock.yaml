@@ -95,12 +95,18 @@ importers:
       '@eventrail/core':
         specifier: workspace:*
         version: link:../../packages/core
+      '@eventrail/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@eventrail/dreamdex-adapter':
         specifier: workspace:*
         version: link:../../packages/dreamdex-adapter
       '@eventrail/redis':
         specifier: workspace:*
         version: link:../../packages/redis
+      '@eventrail/trading':
+        specifier: workspace:*
+        version: link:../../packages/trading
       '@eventrail/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -120,6 +126,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@eventrail/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@eventrail/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -129,6 +138,9 @@ importers:
       '@eventrail/react':
         specifier: workspace:*
         version: link:../../packages/react
+      '@eventrail/trading':
+        specifier: workspace:*
+        version: link:../../packages/trading
       '@eventrail/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -291,6 +303,28 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/trading:
+    dependencies:
+      '@eventrail/types':
+        specifier: workspace:*
+        version: link:../types
+      '@somnia-chain/markets-sdk':
+        specifier: 0.29.0
+        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+      graphql:
+        specifier: 16.11.0
+        version: 16.11.0
+      viem:
+        specifier: 2.56.3
+        version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
+    devDependencies:
+      '@types/node':
+        specifier: 26.5.0
+        version: 26.5.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/types:
     dependencies:
       zod:
@@ -322,12 +356,27 @@ importers:
 
   workers/receipts:
     dependencies:
+      '@eventrail/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@eventrail/database':
         specifier: workspace:*
         version: link:../../packages/database
+      '@eventrail/redis':
+        specifier: workspace:*
+        version: link:../../packages/redis
       '@eventrail/types':
         specifier: workspace:*
         version: link:../../packages/types
+      '@somnia-chain/markets-sdk':
+        specifier: 0.29.0
+        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+      graphql:
+        specifier: 16.11.0
+        version: 16.11.0
+      viem:
+        specifier: 2.56.3
+        version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
     devDependencies:
       '@types/node':
         specifier: 26.5.0
@@ -3452,7 +3501,7 @@ snapshots:
 
   '@scure/bip32@1.7.0':
     dependencies:
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/base': 1.2.6
 
@@ -5423,7 +5472,7 @@ snapshots:
   ox@0.6.9(typescript@6.0.3)(zod@4.5.4):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
-      '@noble/curves': 1.9.1
+      '@noble/curves': 1.9.7
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0

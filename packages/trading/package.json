@@ -1,20 +1,23 @@
 {
-  "name": "@eventrail/receipts-worker",
+  "name": "@eventrail/trading",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "dev": "node --watch dist/runner.js",
-    "start": "node dist/runner.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@eventrail/config": "workspace:*",
-    "@eventrail/database": "workspace:*",
-    "@eventrail/redis": "workspace:*",
     "@eventrail/types": "workspace:*",
     "@somnia-chain/markets-sdk": "0.29.0",
     "graphql": "16.11.0",

@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { MarketExplorer } from "../../components/market-explorer";
-import { markets } from "../../lib/markets";
+import { LiveMarketExplorer } from "../../components/live-market-explorer";
 
 export const metadata: Metadata = { title: "Markets" };
 
@@ -16,11 +15,11 @@ export default function MarketsPage() {
         <div className="page-stat">
           <i />
           <span>
-            <b>{markets.length} markets</b> updating live
+            <b>DreamDEX contracts</b> updating live
           </span>
         </div>
       </div>
-      <MarketExplorer markets={markets} />
+      <LiveMarketExplorer />
     </section>
   );
 }
