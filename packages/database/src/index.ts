@@ -2,6 +2,7 @@ import type { EventMarket } from "@eventrail/types";
 
 export { createDatabasePool, withDatabaseTransaction } from "./pool.js";
 export type { DatabasePool } from "./pool.js";
+export { PostgresTradePlanStore, type PersistedTradePlan } from "./trade-plans.js";
 export {
   PostgresDreamDexMarketGenerationRepository,
   type DreamDexMarketGenerationRepository,

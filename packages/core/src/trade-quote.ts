@@ -101,12 +101,20 @@ export function calculateTradeQuote(
     input.side === "buy"
       ? ceilDiv(bestPrice * BigInt(10_000 + maxSlippageBps), 10_000n)
       : (bestPrice * BigInt(10_000 - maxSlippageBps)) / 10_000n;
-  const limitPrice = snapPrice(unsnappedLimit, tick, input.side);
+  const limitPrice =
+    input.side === "buy"
+      ? min(snapPrice(unsnappedLimit, tick, input.side), one)
+      : snapPrice(unsnappedLimit, tick, input.side) === 0n
+        ? tick
+        : snapPrice(unsnappedLimit, tick, input.side);
   const availableQuantity = levels.reduce((sum, level) => sum + BigInt(level.quantity), 0n);
 
-  let remainingQuantity = input.mode === "quantity" ? snapDown(amount, lot) : 0n;
-  let remainingSpend = input.mode === "spend" ? amount : 0n;
-  if (input.mode === "quantity" && remainingQuantity < minimumQuantity) {
+  const requestedQuantity =
+    input.mode === "quantity"
+      ? snapDown(amount, lot)
+      : snapDown((amount * one * 10_000n) / (limitPrice * BigInt(10_000 + feeBps)), lot);
+  let remainingQuantity = requestedQuantity;
+  if (requestedQuantity < minimumQuantity) {
     throw new QuoteError("MINIMUM_NOT_MET", "Quantity is below the live market minimum.", false);
   }
 
@@ -118,23 +126,13 @@ export function calculateTradeQuote(
     if ((input.side === "buy" && price > limitPrice) || (input.side === "sell" && price < limitPrice)) break;
     const levelQuantity = snapDown(BigInt(level.quantity), lot);
     if (levelQuantity === 0n) continue;
-    let take: bigint;
-    if (input.mode === "quantity") {
-      take = snapDown(min(levelQuantity, remainingQuantity), lot);
-    } else {
-      const affordable = (remainingSpend * one * 10_000n) / (price * BigInt(10_000 + feeBps));
-      take = snapDown(min(levelQuantity, affordable), lot);
-    }
+    const take = snapDown(min(levelQuantity, remainingQuantity), lot);
     if (take === 0n) break;
     const levelNotional = input.side === "buy" ? ceilDiv(take * price, one) : (take * price) / one;
     quantity += take;
     notional += levelNotional;
     worstPrice = price;
-    if (input.mode === "quantity") remainingQuantity -= take;
-    else {
-      const levelFee = ceilDiv(levelNotional * BigInt(feeBps), 10_000n);
-      remainingSpend -= levelNotional + levelFee;
-    }
+    remainingQuantity -= take;
   }
 
   if (quantity < minimumQuantity) {
@@ -144,7 +142,6 @@ export function calculateTradeQuote(
       true,
     );
   }
-  const requestedQuantity = input.mode === "quantity" ? snapDown(amount, lot) : quantity;
   const minimumFillQuantity = snapUp(ceilDiv(requestedQuantity * BigInt(minimumFillBps), 10_000n), lot);
   if (quantity < minimumFillQuantity) {
     throw new QuoteError(
@@ -156,7 +153,12 @@ export function calculateTradeQuote(
 
   const fee = ceilDiv(notional * BigInt(feeBps), 10_000n);
   const total = input.side === "buy" ? notional + fee : notional > fee ? notional - fee : 0n;
-  const requiredBalance = input.side === "buy" ? total : quantity;
+  const worstNotional =
+    input.side === "buy" ? ceilDiv(limitPrice * quantity, one) : (limitPrice * quantity) / one;
+  const worstFee = ceilDiv(worstNotional * BigInt(feeBps), 10_000n);
+  const maximumCost = input.side === "buy" ? worstNotional + worstFee : 0n;
+  const minimumReceive = input.side === "sell" && worstNotional > worstFee ? worstNotional - worstFee : 0n;
+  const requiredBalance = input.side === "buy" ? maximumCost : quantity;
   const balanceValue = input.side === "buy" ? input.collateralBalance : input.outcomeBalance;
   if (balanceValue !== undefined && BigInt(balanceValue) < requiredBalance) {
     throw new QuoteError(
@@ -191,6 +193,7 @@ export function calculateTradeQuote(
     venue: "dreamdex",
     marketId: market.marketId,
     poolAddress: market.poolAddress,
+    collateralDecimals: market.collateralDecimals,
     outcome: input.outcome,
     side: input.side,
     mode: input.mode,
@@ -201,6 +204,8 @@ export function calculateTradeQuote(
     notional: notional.toString(),
     fee: fee.toString(),
     total: total.toString(),
+    maximumCost: maximumCost.toString(),
+    minimumReceive: minimumReceive.toString(),
     averagePrice: averagePrice.toString(),
     worstPrice: worstPrice.toString(),
     limitPrice: limitPrice.toString(),

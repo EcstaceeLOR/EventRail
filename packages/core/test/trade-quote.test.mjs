@@ -90,6 +90,7 @@ test("quantity quotes walk depth, snap bounds, include fees, source block, and h
   assert.equal(quote.notional, "925000");
   assert.equal(quote.fee, "2313");
   assert.equal(quote.total, "927313");
+  assert.equal(quote.maximumCost, "1082700");
   assert.equal(quote.averagePrice, "616667");
   assert.equal(quote.worstPrice, "650000");
   assert.equal(quote.limitPrice, "720000");

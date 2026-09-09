@@ -14,6 +14,7 @@ export const TradeQuoteSchema = z.object({
   venue: z.literal("dreamdex"),
   marketId: Bytes32Schema,
   poolAddress: AddressSchema,
+  collateralDecimals: z.number().int().min(0).max(36),
   outcome: MarketOutcomeSchema,
   side: z.enum(["buy", "sell"]),
   mode: z.enum(["spend", "quantity"]),
@@ -24,6 +25,8 @@ export const TradeQuoteSchema = z.object({
   notional: UnsignedIntegerStringSchema,
   fee: UnsignedIntegerStringSchema,
   total: UnsignedIntegerStringSchema,
+  maximumCost: UnsignedIntegerStringSchema,
+  minimumReceive: UnsignedIntegerStringSchema,
   averagePrice: UnsignedIntegerStringSchema,
   worstPrice: UnsignedIntegerStringSchema,
   limitPrice: UnsignedIntegerStringSchema,
@@ -42,3 +45,69 @@ export const TradeQuoteSchema = z.object({
 });
 
 export type TradeQuote = z.infer<typeof TradeQuoteSchema>;
+
+export const PlanPolicySchema = z.object({
+  maxSlippageBps: z.number().int().min(0).max(10_000),
+  minimumFillBps: z.number().int().min(0).max(10_000),
+  minimumTimeRemainingSeconds: z.number().int().nonnegative(),
+  quoteSourceBlock: UnsignedIntegerStringSchema,
+  quoteExpiresAt: IsoDateTimeSchema,
+});
+
+export const PlannedCallSchema = z.object({
+  kind: z.enum(["approval", "order", "funding", "redemption"]),
+  to: AddressSchema,
+  data: z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/),
+  value: UnsignedIntegerStringSchema,
+  gas: UnsignedIntegerStringSchema,
+  description: z.string().min(1),
+  requiresConfirmation: z.boolean(),
+});
+
+export const TradePlanSchema = z.object({
+  version: z.literal("1"),
+  planId: z.uuid(),
+  planHash: Bytes32Schema,
+  network: SomniaNetworkSchema,
+  chainId: z.number().int().positive(),
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  poolAddress: AddressSchema,
+  collateralAddress: AddressSchema,
+  outcomeTokenAddress: AddressSchema,
+  outcome: MarketOutcomeSchema,
+  side: z.enum(["buy", "sell"]),
+  yesTermsPrice: UnsignedIntegerStringSchema,
+  quantity: UnsignedIntegerStringSchema,
+  orderType: z.literal("ioc"),
+  orderExpiryNs: UnsignedIntegerStringSchema,
+  quote: TradeQuoteSchema,
+  policy: PlanPolicySchema,
+  calls: z.array(PlannedCallSchema).min(1),
+  summary: z.string().min(1),
+  createdAt: IsoDateTimeSchema,
+  expiresAt: IsoDateTimeSchema,
+});
+
+export type PlanPolicy = z.infer<typeof PlanPolicySchema>;
+export type PlannedCall = z.infer<typeof PlannedCallSchema>;
+export type TradePlan = z.infer<typeof TradePlanSchema>;
+
+export const PlanSimulationSchema = z.object({
+  callIndex: z.number().int().nonnegative(),
+  kind: PlannedCallSchema.shape.kind,
+  gasLimit: UnsignedIntegerStringSchema,
+  estimatedGas: UnsignedIntegerStringSchema.nullable(),
+});
+
+export const PlanVerificationSchema = z.object({
+  ok: z.literal(true),
+  planId: z.uuid(),
+  planHash: Bytes32Schema,
+  checkedAt: IsoDateTimeSchema,
+  sourceBlock: UnsignedIntegerStringSchema,
+  simulations: z.array(PlanSimulationSchema),
+});
+
+export type PlanSimulation = z.infer<typeof PlanSimulationSchema>;
+export type PlanVerification = z.infer<typeof PlanVerificationSchema>;
