@@ -51,5 +51,38 @@ test(
     assert.deepEqual(reverted.reverted, [latestVersion]);
     const reapplied = await migrate(connectionString, "up");
     assert.deepEqual(reapplied.applied, [latestVersion]);
+
+    const integrationPool = new pg.Pool({ connectionString, max: 1 });
+    try {
+      const integratorId = "00000000-0000-4000-8000-000000000064";
+      await integrationPool.query(
+        `INSERT INTO integrators (id, slug, display_name, owner_address)
+         VALUES ($1, 'm6-integration', 'M6 integration', '0x1111111111111111111111111111111111111111')`,
+        [integratorId],
+      );
+      const event = [
+        "m6-event-0001",
+        integratorId,
+        "test",
+        "ci",
+        "trade_filled",
+        `0x${"ab".repeat(32)}`,
+        `0x${"cd".repeat(32)}`,
+        "1000000",
+        "2026-09-09T10:00:00.000Z",
+      ];
+      const insert = `INSERT INTO integrator_analytics_events
+        (id, integrator_id, environment, embed_id, event_name, market_id, transaction_hash, volume, occurred_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING`;
+      assert.equal((await integrationPool.query(insert, event)).rowCount, 1);
+      assert.equal((await integrationPool.query(insert, event)).rowCount, 0);
+      const stored = await integrationPool.query(
+        "SELECT analytics_retention_days FROM integrators WHERE id = $1",
+        [integratorId],
+      );
+      assert.equal(stored.rows[0].analytics_retention_days, 90);
+    } finally {
+      await integrationPool.end();
+    }
   },
 );

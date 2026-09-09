@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ClaimsCenter } from "../../components/claims-center";
+import { RiskNotice } from "../../components/risk-notice";
 
 export const metadata: Metadata = { title: "Claims" };
 
@@ -14,6 +15,7 @@ export default function ClaimsPage() {
         </div>
         <span className="safe-pill">Oracle-aware</span>
       </div>
+      <RiskNotice context="claim" />
       <ClaimsCenter />
     </section>
   );

@@ -8,6 +8,7 @@ import { MarketCountdown } from "./market-countdown";
 import { OracleEvidencePanel } from "./oracle-evidence";
 import { DepthVisualization, ProbabilityChart, RecentFills } from "./market-visualizations";
 import { TradeTicket } from "./trade-ticket";
+import { RiskNotice } from "./risk-notice";
 
 export function MarketWorkspace({
   marketId,
@@ -58,6 +59,7 @@ export function MarketWorkspace({
           Live updates are interrupted. Trading is disabled until authoritative state returns.
         </div>
       ) : null}
+      <RiskNotice context="trade" />
       {terminal ? (
         <div className={`market-phase-banner market-phase-banner--${value.status}`}>
           <div>
@@ -185,6 +187,7 @@ export function MarketWorkspace({
 function PreviewWorkspace({ market }: Readonly<{ market: DisplayMarket }>) {
   return (
     <section className="section-wrap page-section">
+      <RiskNotice context="trade" />
       <div className="preview-banner">
         <span>Product preview</span>
         <p>

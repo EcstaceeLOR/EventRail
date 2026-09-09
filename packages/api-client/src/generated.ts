@@ -1,5 +1,6 @@
 // Generated from openapi/eventrail.v1.yaml. Validate through `pnpm openapi:types`.
 export type EventRailApiPath =
+  | "/metrics"
   | "/v1/health"
   | "/v1/markets"
   | "/v1/data/series"

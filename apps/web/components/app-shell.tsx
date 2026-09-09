@@ -169,6 +169,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         <div className="footer-links">
           <Link href="/developers">Build with us</Link>
           <Link href="/status">Status</Link>
+          <Link href="/legal/risk">Risks</Link>
+          <Link href="/legal/privacy">Privacy</Link>
+          <Link href="/legal/terms">Terms</Link>
           <Link href="/settings">Settings</Link>
         </div>
       </footer>

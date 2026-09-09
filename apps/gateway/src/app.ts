@@ -34,6 +34,7 @@ import {
   type EmbedConfig,
   type AnalyticsEvent,
   type WebhookEventName,
+  type OperationalMonitor,
 } from "@eventrail/platform";
 
 export interface PublicEventStream {
@@ -45,6 +46,8 @@ export interface PublicEventStream {
 }
 
 export interface GatewayOptions {
+  monitor?: OperationalMonitor;
+  planningEnabled?: boolean;
   apiAccess?: ApiAccessService;
   apiAuthRequired?: boolean;
   apiEnvironment?: ApiEnvironment;
@@ -246,6 +249,25 @@ export function createGateway(options: GatewayOptions = {}) {
   const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] } });
   const principals = new WeakMap<object, ApiKeyRecord>();
 
+  app.addHook("onRequest", async (request, reply) => {
+    const path = request.url.split("?")[0] ?? request.url;
+    const planningRequest =
+      request.method === "POST" &&
+      /^\/v1\/(builders\/approval-plans|trading\/(quotes|plans)|funding\/routes|redemptions\/plans)$/.test(
+        path,
+      );
+    if (planningRequest && options.planningEnabled === false) {
+      return reply.code(503).send({
+        error: {
+          code: "UPSTREAM_UNAVAILABLE",
+          message: "Transaction planning is temporarily disabled while reads remain available.",
+          requestId: request.id,
+          recoverable: true,
+        },
+      });
+    }
+  });
+
   app.setErrorHandler((error, request, reply) => {
     if (error instanceof z.ZodError) {
       return reply.code(400).send({
@@ -272,7 +294,8 @@ export function createGateway(options: GatewayOptions = {}) {
   app.addHook("onRequest", async (request, reply) => {
     if (!options.apiAccess) return;
     const publicOnboarding = request.method === "POST" && request.url.split("?")[0] === "/v1/integrators";
-    if (request.url.startsWith("/v1/health") || publicOnboarding) return;
+    if (request.url.startsWith("/v1/health") || request.url.startsWith("/metrics") || publicOnboarding)
+      return;
     const management = request.url.startsWith("/v1/integrators/");
     if (!options.apiAuthRequired && !management) return;
     try {
@@ -293,12 +316,21 @@ export function createGateway(options: GatewayOptions = {}) {
     }
   });
 
-  app.get("/v1/health", async (): Promise<HealthStatus> => ({
-    status: "ok",
-    service: "eventrail-gateway",
-    version: "0.1.0",
-    timestamp: new Date().toISOString(),
-  }));
+  app.get(
+    "/v1/health",
+    async (): Promise<HealthStatus> =>
+      options.monitor?.snapshot() ?? {
+        status: "ok",
+        service: "eventrail-gateway",
+        version: "0.1.0",
+        timestamp: new Date().toISOString(),
+      },
+  );
+
+  app.get("/metrics", async (_request, reply) => {
+    reply.type("text/plain; version=0.0.4");
+    return options.monitor?.prometheus() ?? "# EventRail operational metrics are not configured.\n";
+  });
 
   app.post("/v1/integrators", async (request, reply) => {
     if (!options.integrators || !options.apiAccess) {
