@@ -1,0 +1,21 @@
+{
+  "name": "eventrail",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Non-custodial DreamDEX Event Contract infrastructure and trading experience",
+  "packageManager": "pnpm@10.34.5",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "clean": "turbo run clean"
+  },
+  "devDependencies": {
+    "turbo": "2.10.12",
+    "typescript": "7.0.2"
+  }
+}
