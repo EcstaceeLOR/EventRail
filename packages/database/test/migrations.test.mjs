@@ -31,6 +31,9 @@ test(
       assert.ok(tableResult.rows.some((row) => row.tablename === "markets"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "trades"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "dreamdex_market_generations"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "trade_plans"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "trade_executions"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "trade_execution_fills"));
     } finally {
       await pool.end();
     }

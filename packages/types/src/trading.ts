@@ -111,3 +111,83 @@ export const PlanVerificationSchema = z.object({
 
 export type PlanSimulation = z.infer<typeof PlanSimulationSchema>;
 export type PlanVerification = z.infer<typeof PlanVerificationSchema>;
+
+export const TradeExecutionStateSchema = z.enum([
+  "planned",
+  "wallet_pending",
+  "submitted",
+  "confirmed",
+  "filled",
+  "partially_filled",
+  "unfilled",
+  "reverted",
+  "expired",
+  "invalidated",
+]);
+
+export const TradeExecutionSchema = z.object({
+  planId: z.uuid(),
+  planHash: Bytes32Schema,
+  network: SomniaNetworkSchema,
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  poolAddress: AddressSchema,
+  transactionHash: Bytes32Schema,
+  state: TradeExecutionStateSchema,
+  requestedQuantity: UnsignedIntegerStringSchema,
+  filledQuantity: UnsignedIntegerStringSchema,
+  realizedQuoteQuantity: UnsignedIntegerStringSchema,
+  realizedAveragePrice: UnsignedIntegerStringSchema.nullable(),
+  blockNumber: UnsignedIntegerStringSchema.nullable(),
+  errorCode: z.string().nullable(),
+  observedAt: IsoDateTimeSchema,
+});
+
+export type TradeExecutionState = z.infer<typeof TradeExecutionStateSchema>;
+export type TradeExecution = z.infer<typeof TradeExecutionSchema>;
+
+export const TradeActivitySchema = z.object({
+  planId: z.uuid(),
+  planHash: Bytes32Schema,
+  network: SomniaNetworkSchema,
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  activityType: z.literal("trade"),
+  outcome: MarketOutcomeSchema,
+  side: z.enum(["buy", "sell"]),
+  state: TradeExecutionStateSchema,
+  quotedQuantity: UnsignedIntegerStringSchema,
+  quotedPrice: UnsignedIntegerStringSchema,
+  quotedMaximumCost: UnsignedIntegerStringSchema,
+  realizedQuantity: UnsignedIntegerStringSchema,
+  realizedAveragePrice: UnsignedIntegerStringSchema.nullable(),
+  transactionHash: Bytes32Schema.nullable(),
+  createdAt: IsoDateTimeSchema,
+  updatedAt: IsoDateTimeSchema,
+});
+
+export type TradeActivity = z.infer<typeof TradeActivitySchema>;
+
+export const FundingRouteSchema = z.object({
+  version: z.literal("1"),
+  network: SomniaNetworkSchema,
+  venue: z.literal("dreamdex-spot"),
+  account: AddressSchema,
+  poolAddress: AddressSchema,
+  inputToken: AddressSchema,
+  outputToken: AddressSchema,
+  inputSymbol: z.string().min(1),
+  outputSymbol: z.literal("USDso"),
+  inputDecimals: z.number().int().min(0).max(36),
+  outputDecimals: z.number().int().min(0).max(36),
+  inputQuantity: UnsignedIntegerStringSchema,
+  targetOutputQuantity: UnsignedIntegerStringSchema,
+  minimumOutputQuantity: UnsignedIntegerStringSchema,
+  limitPrice: UnsignedIntegerStringSchema,
+  source: z.literal("DreamDEX spot order book"),
+  sourceBlock: UnsignedIntegerStringSchema,
+  expiresAt: IsoDateTimeSchema,
+  calls: z.array(PlannedCallSchema).min(1),
+});
+
+export type FundingRoute = z.infer<typeof FundingRouteSchema>;

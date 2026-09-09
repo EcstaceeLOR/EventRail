@@ -2,6 +2,7 @@ import {
   DataStreamEventSchema,
   EventMarketSchema,
   ExecutableQuoteSchema,
+  FundingRouteSchema,
   HealthStatusSchema,
   MarketSeriesSchema,
   NormalizedCandleSchema,
@@ -12,9 +13,13 @@ import {
   NormalizedPositionSchema,
   OutcomeBalancesSchema,
   TransactionPlanSchema,
+  TradePlanSchema,
+  TradeActivitySchema,
+  TradeQuoteSchema,
   type DataStreamEvent,
   type EventMarket,
   type ExecutableQuote,
+  type FundingRoute,
   type HealthStatus,
   type MarketSeries,
   type NormalizedCandle,
@@ -26,8 +31,11 @@ import {
   type OutcomeBalances,
   type SomniaNetwork,
   type TransactionPlan,
+  type TradePlan,
+  type TradeActivity,
+  type TradeQuote,
 } from "@eventrail/types";
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 
 export interface EventRailClientOptions {
   baseUrl: string;
@@ -72,6 +80,17 @@ export class EventRailClient {
     return this.#request(
       `/v1/data/series?network=${network}`,
       MarketSeriesSchema.array(),
+      optionalSignal(signal),
+    );
+  }
+
+  listLiveMarkets(
+    network: SomniaNetwork = "shannon",
+    signal?: AbortSignal,
+  ): Promise<readonly NormalizedMarket[]> {
+    return this.#request(
+      `/v1/data/markets?network=${network}`,
+      NormalizedMarketSchema.array(),
       optionalSignal(signal),
     );
   }
@@ -136,6 +155,21 @@ export class EventRailClient {
     );
   }
 
+  getActivity(
+    account: string,
+    filters: { network?: SomniaNetwork; marketId?: string; status?: string } = {},
+    signal?: AbortSignal,
+  ): Promise<readonly TradeActivity[]> {
+    const query = new URLSearchParams({ network: filters.network ?? "shannon" });
+    if (filters.marketId) query.set("marketId", filters.marketId);
+    if (filters.status) query.set("status", filters.status);
+    return this.#request(
+      `/v1/data/accounts/${encodeURIComponent(account)}/activity?${query}`,
+      TradeActivitySchema.array(),
+      optionalSignal(signal),
+    );
+  }
+
   getQuote(
     marketId: string,
     outcome: "up" | "down",
@@ -149,6 +183,77 @@ export class EventRailClient {
       ExecutableQuoteSchema,
       optionalSignal(signal),
     );
+  }
+
+  createTradeQuote(
+    input: {
+      marketId: string;
+      outcome: "up" | "down";
+      side: "buy" | "sell";
+      mode: "spend" | "quantity";
+      amount: string;
+      availableBalance?: string;
+      feeBps?: number;
+      maxSlippageBps?: number;
+      minimumFillBps?: number;
+      minimumTimeRemainingSeconds?: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<TradeQuote> {
+    return this.#request("/v1/trading/quotes", TradeQuoteSchema, {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...optionalSignal(signal),
+    });
+  }
+
+  createTradePlan(
+    input: {
+      account: `0x${string}`;
+      idempotencyKey: string;
+      quote: TradeQuote;
+      policy: {
+        maxSlippageBps: number;
+        minimumFillBps: number;
+        minimumTimeRemainingSeconds: number;
+        quoteSourceBlock: string;
+        quoteExpiresAt: string;
+      };
+    },
+    signal?: AbortSignal,
+  ): Promise<TradePlan> {
+    return this.#request("/v1/trading/plans", TradePlanSchema, {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...optionalSignal(signal),
+    });
+  }
+
+  createFundingRoute(
+    input: { account: `0x${string}`; targetOutputQuantity: string; maxSlippageBps?: number },
+    signal?: AbortSignal,
+  ): Promise<FundingRoute> {
+    return this.#request("/v1/funding/routes", FundingRouteSchema, {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...optionalSignal(signal),
+    });
+  }
+
+  async submitTrade(
+    input: {
+      planId: string;
+      planHash: string;
+      account: `0x${string}`;
+      transactionHash: `0x${string}`;
+    },
+    signal?: AbortSignal,
+  ): Promise<void> {
+    await this.#request("/v1/trading/submissions", z.object({ accepted: z.literal(true) }), {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...optionalSignal(signal),
+    });
   }
 
   planTrade(

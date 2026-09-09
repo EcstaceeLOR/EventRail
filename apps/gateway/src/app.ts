@@ -1,15 +1,19 @@
 import Fastify from "fastify";
 import { z } from "zod";
-import { quoteExecutableDepth } from "@eventrail/core";
+import { calculateTradeQuote, QuoteError, quoteExecutableDepth } from "@eventrail/core";
 import type { DreamDexReadAdapter } from "@eventrail/dreamdex-adapter";
 import type { EventBusRecord } from "@eventrail/redis";
 import {
   MarketSeriesSchema,
+  PlanPolicySchema,
+  TradeQuoteSchema,
   type HealthStatus,
   type MarketSeries,
   type NormalizedMarket,
   type SomniaNetwork,
+  type TradeActivity,
 } from "@eventrail/types";
+import { PlanConflictError, type CreateTradePlanInput } from "@eventrail/trading";
 
 export interface PublicEventStream {
   subscribe(options: {
@@ -23,6 +27,24 @@ export interface GatewayOptions {
   eventStream?: PublicEventStream;
   dataReader?: DreamDexReadAdapter;
   heartbeatMs?: number;
+  tradePlanner?: { create(input: CreateTradePlanInput): Promise<unknown> };
+  activityReader?: {
+    list(input: {
+      network: SomniaNetwork;
+      account: string;
+      marketId?: string;
+      status?: string;
+      limit?: number;
+    }): Promise<readonly TradeActivity[]>;
+  };
+  submissionStore?: {
+    recordSubmission(input: {
+      planId: string;
+      planHash: string;
+      account: string;
+      transactionHash: string;
+    }): Promise<void>;
+  };
 }
 
 const EventQuerySchema = z.object({ network: z.enum(["shannon", "mainnet"]).default("shannon") });
@@ -34,6 +56,55 @@ const QuoteQuerySchema = z.object({
   outcome: z.enum(["up", "down"]),
   side: z.enum(["buy", "sell"]),
   quantity: z.string().regex(/^[1-9][0-9]*$/),
+});
+const TradeQuoteRequestSchema = z.object({
+  marketId: MarketParamsSchema.shape.marketId,
+  outcome: z.enum(["up", "down"]),
+  side: z.enum(["buy", "sell"]),
+  mode: z.enum(["spend", "quantity"]),
+  amount: z.string().regex(/^[1-9][0-9]*$/),
+  availableBalance: z
+    .string()
+    .regex(/^(0|[1-9][0-9]*)$/)
+    .optional(),
+  feeBps: z.number().int().min(0).max(10_000).default(0),
+  maxSlippageBps: z.number().int().min(0).max(10_000).default(100),
+  minimumFillBps: z.number().int().min(0).max(10_000).default(10_000),
+  minimumTimeRemainingSeconds: z.number().int().nonnegative().default(30),
+});
+const TradePlanRequestSchema = z.object({
+  account: AccountParamsSchema.shape.account,
+  idempotencyKey: z.string().min(8).max(128),
+  quote: TradeQuoteSchema,
+  policy: PlanPolicySchema,
+});
+const FundingRouteRequestSchema = z.object({
+  account: AccountParamsSchema.shape.account,
+  targetOutputQuantity: z.string().regex(/^[1-9][0-9]*$/),
+  maxSlippageBps: z.number().int().min(0).max(2_000).default(100),
+});
+const ActivityQuerySchema = EventQuerySchema.extend({
+  marketId: MarketParamsSchema.shape.marketId.optional(),
+  status: z
+    .enum([
+      "planned",
+      "submitted",
+      "confirmed",
+      "filled",
+      "partially_filled",
+      "unfilled",
+      "reverted",
+      "expired",
+      "invalidated",
+    ])
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(250).default(100),
+});
+const TradeSubmissionSchema = z.object({
+  planId: z.uuid(),
+  planHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
+  account: AccountParamsSchema.shape.account,
+  transactionHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
 });
 
 export function createGateway(options: GatewayOptions = {}) {
@@ -55,6 +126,14 @@ export function createGateway(options: GatewayOptions = {}) {
       (market) => market.network === network,
     );
     return buildSeries(markets);
+  });
+
+  app.get("/v1/data/markets", async (request, reply) => {
+    if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
+    const { network } = EventQuerySchema.parse(request.query);
+    return (await options.dataReader.listLiveMarkets(request.signal)).filter(
+      (market) => market.network === network,
+    );
   });
 
   app.get("/v1/data/markets/:marketId", async (request, reply) => {
@@ -93,10 +172,148 @@ export function createGateway(options: GatewayOptions = {}) {
     return quoteExecutableDepth(book, quote);
   });
 
+  app.post("/v1/trading/quotes", async (request, reply) => {
+    if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
+    const input = TradeQuoteRequestSchema.parse(request.body);
+    const [market, book, parameters] = await Promise.all([
+      options.dataReader.getMarket(input.marketId, request.signal),
+      options.dataReader.getOrderBook(input.marketId, 100, request.signal),
+      options.dataReader.getBookParameters(input.marketId, request.signal),
+    ]);
+    if (!market || !book || !parameters) return reply.code(404).send({ error: "Market not found" });
+    try {
+      return calculateTradeQuote(market, book, {
+        outcome: input.outcome,
+        side: input.side,
+        mode: input.mode,
+        amount: input.amount,
+        tickSize: parameters.tickSize,
+        lotSize: parameters.lotSize,
+        minimumQuantity: parameters.minimumQuantity,
+        feeBps: input.feeBps,
+        maxSlippageBps: input.maxSlippageBps,
+        minimumFillBps: input.minimumFillBps,
+        minimumTimeRemainingSeconds: input.minimumTimeRemainingSeconds,
+        ...(input.availableBalance === undefined
+          ? {}
+          : input.side === "buy"
+            ? { collateralBalance: input.availableBalance }
+            : { outcomeBalance: input.availableBalance }),
+      });
+    } catch (error) {
+      if (error instanceof QuoteError) {
+        return reply.code(error.recoverable ? 409 : 400).send({
+          error: { code: error.code, message: error.message, recoverable: error.recoverable },
+        });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/v1/trading/plans", async (request, reply) => {
+    if (!options.dataReader || !options.tradePlanner) {
+      return reply.code(503).send({ error: "Trade planning is unavailable" });
+    }
+    const input = TradePlanRequestSchema.parse(request.body);
+    const [market, book, parameters] = await Promise.all([
+      options.dataReader.getMarket(input.quote.marketId, request.signal),
+      options.dataReader.getOrderBook(input.quote.marketId, 100, request.signal),
+      options.dataReader.getBookParameters(input.quote.marketId, request.signal),
+    ]);
+    if (!market || !book || !parameters) return reply.code(404).send({ error: "Market not found" });
+    if (market.poolAddress.toLowerCase() !== input.quote.poolAddress.toLowerCase()) {
+      return reply.code(409).send({ error: "Market rolled over; request a new quote" });
+    }
+    try {
+      const refreshed = calculateTradeQuote(market, book, {
+        outcome: input.quote.outcome,
+        side: input.quote.side,
+        mode: input.quote.mode,
+        amount: input.quote.requestedAmount,
+        tickSize: parameters.tickSize,
+        lotSize: parameters.lotSize,
+        minimumQuantity: parameters.minimumQuantity,
+        feeBps: inferFeeBps(input.quote.notional, input.quote.fee),
+        maxSlippageBps: input.policy.maxSlippageBps,
+        minimumFillBps: input.policy.minimumFillBps,
+        minimumTimeRemainingSeconds: input.policy.minimumTimeRemainingSeconds,
+      });
+      assertQuoteStillExecutable(input.quote, refreshed);
+      return await options.tradePlanner.create({
+        idempotencyKey: input.idempotencyKey,
+        chainId: market.network === "shannon" ? 50_312 : 5_031,
+        account: input.account as `0x${string}`,
+        collateralAddress: market.collateralAddress as `0x${string}`,
+        outcomeTokenAddress: market.outcomeTokenAddress as `0x${string}`,
+        upTokenId: market.upTokenId,
+        downTokenId: market.downTokenId,
+        quote: input.quote,
+        policy: input.policy,
+      });
+    } catch (error) {
+      if (error instanceof PlanConflictError) {
+        return reply.code(409).send({ error: { code: error.code, message: error.message } });
+      }
+      if (error instanceof QuoteError) {
+        return reply
+          .code(409)
+          .send({ error: { code: error.code, message: error.message, recoverable: true } });
+      }
+      throw error;
+    }
+  });
+
+  app.post("/v1/funding/routes", async (request, reply) => {
+    if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX funding is unavailable" });
+    const input = FundingRouteRequestSchema.parse(request.body);
+    const route = await options.dataReader.getUsdsoFundingRoute(
+      {
+        account: input.account as `0x${string}`,
+        targetOutputQuantity: input.targetOutputQuantity,
+        maxSlippageBps: input.maxSlippageBps,
+      },
+      request.signal,
+    );
+    return (
+      route ??
+      reply.code(409).send({
+        error: {
+          code: "USDso_ROUTE_UNAVAILABLE",
+          message: "No sufficiently deep SOMI/USDso DreamDEX spot route is currently available.",
+          recoverable: true,
+        },
+      })
+    );
+  });
+
+  app.post("/v1/trading/submissions", async (request, reply) => {
+    if (!options.submissionStore) return reply.code(503).send({ error: "Receipt tracking is unavailable" });
+    const input = TradeSubmissionSchema.parse(request.body);
+    try {
+      await options.submissionStore.recordSubmission(input);
+      return reply.code(202).send({ accepted: true });
+    } catch (error) {
+      return reply.code(409).send({ error: error instanceof Error ? error.message : "Submission rejected" });
+    }
+  });
+
   app.get("/v1/data/accounts/:account/positions", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account } = AccountParamsSchema.parse(request.params);
     return options.dataReader.getPositions(account, request.signal);
+  });
+
+  app.get("/v1/data/accounts/:account/activity", async (request, reply) => {
+    if (!options.activityReader) return reply.code(503).send({ error: "Activity history is unavailable" });
+    const { account } = AccountParamsSchema.parse(request.params);
+    const query = ActivityQuerySchema.parse(request.query);
+    return options.activityReader.list({
+      network: query.network,
+      account,
+      limit: query.limit,
+      ...(query.marketId ? { marketId: query.marketId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    });
   });
 
   app.get("/v1/data/accounts/:account/claims", async (request, reply) => {
@@ -175,4 +392,48 @@ export function buildSeries(markets: readonly NormalizedMarket[]): readonly Mark
       freshness: current.freshness,
     });
   });
+}
+
+function inferFeeBps(notionalValue: string, feeValue: string): number {
+  const notional = BigInt(notionalValue);
+  const fee = BigInt(feeValue);
+  if (fee === 0n) return 0;
+  if (notional === 0n) throw new QuoteError("INVALID_INPUT", "A fee cannot exist without notional.", false);
+  const candidate = Number(((fee - 1n) * 10_000n) / notional + 1n);
+  if (candidate < 0 || candidate > 10_000 || (notional * BigInt(candidate) + 9_999n) / 10_000n !== fee) {
+    throw new QuoteError("INVALID_INPUT", "The quote fee policy is inconsistent.", false);
+  }
+  return candidate;
+}
+
+function assertQuoteStillExecutable(
+  original: z.infer<typeof TradeQuoteSchema>,
+  refreshed: z.infer<typeof TradeQuoteSchema>,
+) {
+  const fields = [
+    "network",
+    "marketId",
+    "poolAddress",
+    "outcome",
+    "side",
+    "mode",
+    "requestedAmount",
+    "quantity",
+    "minimumFillQuantity",
+    "notional",
+    "fee",
+    "maximumCost",
+    "minimumReceive",
+    "limitPrice",
+    "tickSize",
+    "lotSize",
+    "sourceBlock",
+  ] as const;
+  if (fields.some((field) => original[field] !== refreshed[field])) {
+    throw new QuoteError(
+      "STALE_BOOK",
+      "The executable quote no longer matches authoritative DreamDEX depth.",
+      true,
+    );
+  }
 }

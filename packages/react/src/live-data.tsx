@@ -7,12 +7,14 @@ import type {
   DataFreshness,
   MarketSeries,
   NormalizedClaim,
+  NormalizedCandle,
   NormalizedFill,
   NormalizedMarket,
   NormalizedOrderBook,
   NormalizedPosition,
   OutcomeBalances,
   SomniaNetwork,
+  TradeActivity,
 } from "@eventrail/types";
 
 export type DataViewState = "loading" | "live" | "stale" | "offline" | "terminal";
@@ -43,6 +45,7 @@ export function EventRailProvider({ client, network = "shannon", children }: Eve
       for await (const { event } of client.subscribeEvents({ network, signal: controller.signal })) {
         if (event.type === "market.rolled-over" || event.type === "market.updated") {
           await queryClient.invalidateQueries({ queryKey: queryKeys.series(network) });
+          await queryClient.invalidateQueries({ queryKey: queryKeys.markets(network) });
         }
         await queryClient.invalidateQueries({ queryKey: queryKeys.market(event.marketId) });
         if (event.type === "book.updated" || event.type === "fill.created") {
@@ -51,6 +54,7 @@ export function EventRailProvider({ client, network = "shannon", children }: Eve
         }
         if (
           event.type === "position.updated" ||
+          event.type === "transaction.updated" ||
           event.type === "claim.updated" ||
           event.type === "market.settled"
         ) {
@@ -65,13 +69,18 @@ export function EventRailProvider({ client, network = "shannon", children }: Eve
 
 export const queryKeys = {
   series: (network: SomniaNetwork) => ["eventrail", "series", network] as const,
+  markets: (network: SomniaNetwork) => ["eventrail", "markets", network] as const,
   market: (marketId: string) => ["eventrail", "market", marketId] as const,
   book: (marketId: string) => ["eventrail", "book", marketId] as const,
   trades: (marketId: string) => ["eventrail", "trades", marketId] as const,
+  candles: (marketId: string, intervalSeconds: number) =>
+    ["eventrail", "candles", marketId, intervalSeconds] as const,
   balances: (account: string, marketId: string) =>
     ["eventrail", "account", account, "balances", marketId] as const,
   positions: (account: string) => ["eventrail", "account", account, "positions"] as const,
   claims: (account: string) => ["eventrail", "account", account, "claims"] as const,
+  activity: (account: string, marketId: string, status: string) =>
+    ["eventrail", "account", account, "activity", marketId, status] as const,
 };
 
 export function useSeries(): LiveDataView<readonly MarketSeries[]> {
@@ -81,6 +90,20 @@ export function useSeries(): LiveDataView<readonly MarketSeries[]> {
     queryFn: ({ signal }) => client.listSeries(network, signal),
   });
   return view(query, query.data?.[0]?.freshness);
+}
+
+export function useMarkets(): LiveDataView<readonly NormalizedMarket[]> {
+  const { client, network } = useEventRail();
+  const query = useQuery({
+    queryKey: queryKeys.markets(network),
+    queryFn: ({ signal }) => client.listLiveMarkets(network, signal),
+    refetchInterval: 10_000,
+  });
+  return view(query, query.data?.[0]?.freshness);
+}
+
+export function useEventRailClient(): EventRailClient {
+  return useEventRail().client;
 }
 
 export function useMarket(marketId: string): LiveDataView<NormalizedMarket> {
@@ -118,6 +141,19 @@ export function useTrades(marketId: string): LiveDataView<readonly NormalizedFil
   return view(query);
 }
 
+export function useCandles(
+  marketId: string,
+  intervalSeconds: number,
+): LiveDataView<readonly NormalizedCandle[]> {
+  const { client } = useEventRail();
+  const query = useQuery({
+    queryKey: queryKeys.candles(marketId, intervalSeconds),
+    queryFn: ({ signal }) => client.getCandles(marketId, intervalSeconds, signal),
+    enabled: marketId.length > 0 && intervalSeconds > 0,
+  });
+  return view(query);
+}
+
 export function useBalances(account: string, marketId: string): LiveDataView<OutcomeBalances> {
   const { client } = useEventRail();
   const query = useQuery({
@@ -146,6 +182,19 @@ export function useClaims(account: string): LiveDataView<readonly NormalizedClai
     enabled: account.length > 0,
   });
   return view(query, query.data?.[0]?.freshness);
+}
+
+export function useActivity(
+  account: string,
+  filters: { marketId?: string; status?: string } = {},
+): LiveDataView<readonly TradeActivity[]> {
+  const { client, network } = useEventRail();
+  const query = useQuery({
+    queryKey: queryKeys.activity(account, filters.marketId ?? "", filters.status ?? ""),
+    queryFn: ({ signal }) => client.getActivity(account, { network, ...filters }, signal),
+    enabled: account.length > 0,
+  });
+  return view(query);
 }
 
 export function classifyDataState(input: {

@@ -195,6 +195,7 @@ export const DataEventTypeSchema = z.enum([
   "market.settled",
   "position.updated",
   "claim.updated",
+  "transaction.updated",
 ]);
 
 export const DataStreamEventSchema = z.object({

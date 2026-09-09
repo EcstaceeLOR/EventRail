@@ -11,8 +11,12 @@ import {
   type FillRow,
   type OpenPositionPnL,
   type SomniaMarketsClient,
+  type SpotMarket,
+  type SpotOrderBook,
+  erc20WriteAbi,
+  spotPoolWriteAbi,
 } from "@somnia-chain/markets-sdk";
-import type { Address, Hex } from "viem";
+import { encodeFunctionData, type Address, type Hex } from "viem";
 import {
   DataFreshnessSchema,
   BookParametersSchema,
@@ -35,6 +39,8 @@ import {
   type OutcomeBalances,
   type ResolutionSnapshot,
   type SomniaNetwork,
+  FundingRouteSchema,
+  type FundingRoute,
 } from "@eventrail/types";
 import {
   getDreamDexRegistry,
@@ -65,6 +71,8 @@ export type DreamDexSdkReadClient = Pick<
   | "getOutcomeBalances"
 >;
 
+export type DreamDexSpotReadClient = Pick<SomniaMarketsClient, "listSpotMarkets" | "getSpotOrderBook">;
+
 export interface DreamDexChainReader {
   getBlockNumber(): Promise<bigint>;
 }
@@ -89,6 +97,14 @@ export interface DreamDexReadAdapter {
     marketId: string,
     signal?: AbortSignal,
   ): Promise<OutcomeBalances | null>;
+  getUsdsoFundingRoute(
+    input: {
+      account: Address;
+      targetOutputQuantity: string;
+      maxSlippageBps: number;
+    },
+    signal?: AbortSignal,
+  ): Promise<FundingRoute | null>;
 }
 
 export interface ReadOptions {
@@ -119,6 +135,7 @@ export interface DreamDexAdapterOptions {
   network?: SomniaNetwork;
   registry?: DreamDexContractRegistry;
   sdk?: DreamDexSdkReadClient;
+  spotSdk?: DreamDexSpotReadClient;
   chainReader?: DreamDexChainReader;
   signal?: AbortSignal;
   staleAfterMs?: number;
@@ -128,6 +145,7 @@ export interface DreamDexAdapterOptions {
 export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
   readonly #network: SomniaNetwork;
   readonly #sdk: DreamDexSdkReadClient;
+  readonly #spotSdk: DreamDexSpotReadClient | null;
   readonly #chain: DreamDexChainReader;
   readonly #signal: AbortSignal | undefined;
   readonly #staleAfterMs: number;
@@ -139,8 +157,10 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
     this.#signal = options.signal;
     this.#staleAfterMs = options.staleAfterMs ?? 10_000;
     this.#clock = options.clock ?? (() => new Date());
-    if (options.sdk) this.#sdk = options.sdk;
-    else {
+    if (options.sdk) {
+      this.#sdk = options.sdk;
+      this.#spotSdk = options.spotSdk ?? null;
+    } else {
       const exchange = new SomniaMarkets({
         indexerUrl: registry.indexerUrl,
         chain: registry.chain,
@@ -149,8 +169,32 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
         ...(options.signal ? { signal: options.signal } : {}),
       });
       this.#sdk = exchange.client;
+      this.#spotSdk = exchange.client;
     }
     this.#chain = options.chainReader ?? createResilientRpcRouter(registry);
+  }
+
+  async getUsdsoFundingRoute(
+    input: { account: Address; targetOutputQuantity: string; maxSlippageBps: number },
+    signal?: AbortSignal,
+  ): Promise<FundingRoute | null> {
+    return this.#execute("getUsdsoFundingRoute", signal, async () => {
+      if (!this.#spotSdk) return null;
+      const markets = await this.#spotSdk.listSpotMarkets({ quoteSymbol: "USDso", limit: 50 });
+      const market =
+        markets.find((candidate) => candidate.baseIsNative) ??
+        markets.find((candidate) => candidate.baseSymbol?.toUpperCase() === "SOMI");
+      if (!market) return null;
+      const book = await this.#spotSdk.getSpotOrderBook(market.poolAddress, { depth: 100 });
+      return buildUsdsoFundingRoute(
+        this.#network,
+        market,
+        book,
+        input,
+        await this.#chain.getBlockNumber(),
+        this.#clock(),
+      );
+    });
   }
 
   async listLiveMarkets(signal?: AbortSignal): Promise<readonly NormalizedMarket[]> {
@@ -628,6 +672,102 @@ function isoFromUnix(value: string): string {
 
 function inMarketWindow(value: string, market: BinaryMarket): boolean {
   return BigInt(value) >= BigInt(market.tradingStart) && BigInt(value) <= BigInt(market.expiry);
+}
+
+export function buildUsdsoFundingRoute(
+  network: SomniaNetwork,
+  market: SpotMarket,
+  book: SpotOrderBook,
+  input: { account: Address; targetOutputQuantity: string; maxSlippageBps: number },
+  sourceBlock: bigint,
+  now: Date,
+): FundingRoute | null {
+  const target = BigInt(input.targetOutputQuantity);
+  if (target <= 0n || input.maxSlippageBps < 0 || input.maxSlippageBps > 10_000) return null;
+  const oneBase = 10n ** BigInt(market.baseDecimals);
+  let received = 0n;
+  let inputQuantity = 0n;
+  let worstPrice = 0n;
+  for (const level of book.bids) {
+    if (level.price <= 0n || level.quantity <= 0n) continue;
+    const remaining = target - received;
+    if (remaining <= 0n) break;
+    const needed = (remaining * oneBase + level.price - 1n) / level.price;
+    const taken = needed < level.quantity ? needed : level.quantity;
+    inputQuantity += taken;
+    received += (taken * level.price) / oneBase;
+    worstPrice = level.price;
+  }
+  if (received < target || worstPrice === 0n) return null;
+  const lot = BigInt(market.lotSize);
+  const snappedQuantity = ((inputQuantity + lot - 1n) / lot) * lot;
+  if (snappedQuantity < BigInt(market.minQuantity)) return null;
+  const tick = BigInt(market.tickSize);
+  const slippagePrice = (worstPrice * BigInt(10_000 - input.maxSlippageBps)) / 10_000n;
+  const limitPrice = (slippagePrice / tick) * tick;
+  if (limitPrice <= 0n) return null;
+  const expiresAt = new Date(now.getTime() + 30_000);
+  const expiryNs = BigInt(expiresAt.getTime()) * 1_000_000n;
+  const calls: FundingRoute["calls"] = [];
+  if (!market.baseIsNative) {
+    calls.push({
+      kind: "approval",
+      to: market.baseToken,
+      data: encodeFunctionData({
+        abi: erc20WriteAbi,
+        functionName: "approve",
+        args: [market.poolAddress, snappedQuantity],
+      }),
+      value: "0",
+      gas: "150000",
+      description: `Approve exactly ${snappedQuantity} ${market.baseSymbol ?? "base tokens"}`,
+      requiresConfirmation: true,
+    });
+  }
+  calls.push({
+    kind: "funding",
+    to: market.poolAddress,
+    data: encodeFunctionData({
+      abi: spotPoolWriteAbi,
+      functionName: "placeOrder",
+      args: [
+        false,
+        0n,
+        limitPrice,
+        snappedQuantity,
+        expiryNs,
+        2,
+        0,
+        "0x0000000000000000000000000000000000000000",
+        0n,
+      ],
+    }),
+    value: market.baseIsNative ? snappedQuantity.toString() : "0",
+    gas: "750000",
+    description: `Sell ${market.baseSymbol ?? "base asset"} for USDso through DreamDEX spot IOC liquidity`,
+    requiresConfirmation: true,
+  });
+  return FundingRouteSchema.parse({
+    version: "1",
+    network,
+    venue: "dreamdex-spot",
+    account: input.account,
+    poolAddress: market.poolAddress,
+    inputToken: market.baseToken,
+    outputToken: market.quoteToken,
+    inputSymbol: market.baseSymbol ?? "SOMI",
+    outputSymbol: "USDso",
+    inputDecimals: market.baseDecimals,
+    outputDecimals: market.quoteDecimals,
+    inputQuantity: snappedQuantity.toString(),
+    targetOutputQuantity: target.toString(),
+    minimumOutputQuantity: ((target * BigInt(10_000 - input.maxSlippageBps)) / 10_000n).toString(),
+    limitPrice: limitPrice.toString(),
+    source: "DreamDEX spot order book",
+    sourceBlock: sourceBlock.toString(),
+    expiresAt: expiresAt.toISOString(),
+    calls,
+  });
 }
 
 function mapAdapterError(operation: string, error: unknown): DreamDexAdapterError {

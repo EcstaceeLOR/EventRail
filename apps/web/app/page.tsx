@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveLandingPreview } from "../components/live-landing-preview";
 import { MarketCard } from "../components/market-card";
 import { formatUsd, markets } from "../lib/markets";
 
@@ -14,15 +15,15 @@ export default function HomePage() {
           <h1>
             Trade the outcome.
             <br />
-            <em>Build the experience.</em>
+            <em>Keep the context.</em>
           </h1>
           <p>
-            EventRail makes DreamDEX markets safe to trade and effortless to embed—from one wallet flow to a
-            complete prediction product.
+            EventRail turns DreamDEX Event Contracts into a safe, continuous trading journey—from live depth
+            to wallet-signed execution and settlement.
           </p>
           <div className="hero-actions">
             <Link className="primary-button" href="/markets">
-              Explore markets <span>→</span>
+              Explore live markets <span>→</span>
             </Link>
             <Link className="secondary-button" href="/developers">
               Start building
@@ -31,86 +32,38 @@ export default function HomePage() {
           <div className="trust-row">
             <span>Non-custodial</span>
             <span>Live on Somnia</span>
-            <span>Built on DreamDEX</span>
+            <span>DreamDEX-native</span>
           </div>
         </div>
-        <div className="hero-visual" aria-label="Live market preview">
-          <div className="orbit orbit-one" />
-          <div className="orbit orbit-two" />
-          <div className="spotlight-card">
-            <div className="spotlight-header">
-              <span>Featured market</span>
-              <span className="live-chip">
-                <i /> Live
-              </span>
-            </div>
-            <h2>{markets[0]?.question}</h2>
-            <div className="big-probability">
-              <strong>64%</strong>
-              <span>market probability</span>
-            </div>
-            <svg
-              className="hero-chart"
-              viewBox="0 0 520 150"
-              role="img"
-              aria-label="Probability trending upward"
-            >
-              <defs>
-                <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0" stopColor="#74fbc0" stopOpacity=".34" />
-                  <stop offset="1" stopColor="#74fbc0" stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M0 120 C45 118 50 100 92 105 S160 82 197 91 S252 46 300 65 S358 74 398 42 S465 34 520 8 L520 150 L0 150 Z"
-                fill="url(#area)"
-              />
-              <path
-                d="M0 120 C45 118 50 100 92 105 S160 82 197 91 S252 46 300 65 S358 74 398 42 S465 34 520 8"
-                fill="none"
-                stroke="#74fbc0"
-                strokeWidth="4"
-                strokeLinecap="round"
-              />
-            </svg>
-            <div className="spotlight-actions">
-              <Link href={`/markets/${markets[0]?.id}?side=yes`} className="yes-button">
-                Buy Yes <b>64¢</b>
-              </Link>
-              <Link href={`/markets/${markets[0]?.id}?side=no`} className="no-button">
-                Buy No <b>36¢</b>
-              </Link>
-            </div>
-          </div>
-        </div>
+        <LiveLandingPreview />
       </section>
 
-      <section className="metric-strip">
+      <section className="metric-strip" aria-label="EventRail trust model">
         <div>
           <strong>{formatUsd(totalVolume)}</strong>
-          <span>tracked volume</span>
+          <span>reference volume</span>
         </div>
         <div>
-          <strong>{markets.length}</strong>
-          <span>live prototype markets</span>
+          <strong>1 plan hash</strong>
+          <span>from review to signature</span>
         </div>
         <div>
-          <strong>&lt; 1 sec</strong>
-          <span>Somnia finality target</span>
+          <strong>IOC</strong>
+          <span>no stale remainder</span>
         </div>
         <div>
           <strong>100%</strong>
-          <span>non-custodial</span>
+          <span>wallet controlled</span>
         </div>
       </section>
 
       <section className="section-wrap section-block">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">Moving now</span>
+            <span className="eyebrow">Explore the experience</span>
             <h2>Markets worth watching</h2>
           </div>
-          <Link href="/markets">View all markets →</Link>
+          <Link href="/markets">View live contracts →</Link>
         </div>
         <div className="market-grid">
           {markets.slice(0, 3).map((market) => (
@@ -119,30 +72,72 @@ export default function HomePage() {
         </div>
       </section>
 
+      <section className="section-wrap trust-model">
+        <div>
+          <span className="eyebrow">Trust, made visible</span>
+          <h2>Advice from EventRail. Authority from the chain.</h2>
+        </div>
+        <ol>
+          <li>
+            <b>01</b>
+            <div>
+              <strong>Quote</strong>
+              <p>Walk current DreamDEX depth with hard slippage, fill, balance, and expiry bounds.</p>
+            </div>
+          </li>
+          <li>
+            <b>02</b>
+            <div>
+              <strong>Verify</strong>
+              <p>Recompute the plan hash, recheck the market binding, and simulate exact calldata.</p>
+            </div>
+          </li>
+          <li>
+            <b>03</b>
+            <div>
+              <strong>Sign</strong>
+              <p>Your connected wallet approves and submits. EventRail never receives private keys.</p>
+            </div>
+          </li>
+          <li>
+            <b>04</b>
+            <div>
+              <strong>Reconcile</strong>
+              <p>Confirmed logs—not requested quantity—become the execution record.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
       <section className="section-wrap builder-banner">
         <div>
           <span className="eyebrow">For builders</span>
           <h2>
             One integration.
             <br />
-            Every event contract.
+            Every market generation.
           </h2>
           <p>
-            Use a typed API, headless hooks, or polished components. EventRail handles market discovery,
-            rollover, transaction planning, positions, and claims.
+            Typed APIs and React hooks cover discovery, rollover-safe planning, positions, activity, and
+            claims.
           </p>
-          <Link className="primary-button" href="/developers">
-            Read the developer overview <span>→</span>
-          </Link>
+          <div className="hero-actions">
+            <Link className="primary-button" href="/developers">
+              Developer overview <span>→</span>
+            </Link>
+            <Link className="secondary-button" href="/status">
+              System status
+            </Link>
+          </div>
         </div>
-        <pre aria-label="React SDK example">
+        <pre aria-label="EventRail React integration example">
           <code>
-            <span>import</span> {"{ useEventMarket }"} <span>from</span>
-            {"\n"} <b>&quot;@eventrail/react&quot;</b>
+            <span>import</span> {"{ useMarket, useOrderBook }"} <span>from</span>
+            {"\n"}
+            <b>&quot;@eventrail/react&quot;</b>
             {"\n\n"}
-            <span>const</span> {"{ market, trade }"} ={"\n"} useEventMarket(<b>&quot;somnia-tvl&quot;</b>);
-            {"\n\n"}
-            <span>await</span> trade({"{"} outcome: <b>&quot;yes&quot;</b>, amount: <b>25</b> {"}"});
+            <span>const</span> market = useMarket(<b>marketId</b>);{"\n"}
+            <span>const</span> depth = useOrderBook(<b>marketId</b>);
           </code>
         </pre>
       </section>

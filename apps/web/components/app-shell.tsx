@@ -9,6 +9,7 @@ import { WalletControl } from "./wallet-provider";
 const primaryNavigation = [
   { href: "/markets", label: "Markets", short: "Explore" },
   { href: "/portfolio", label: "Portfolio", short: "Portfolio" },
+  { href: "/activity", label: "Activity", short: "Activity" },
   { href: "/claims", label: "Claims", short: "Claims" },
   { href: "/developers", label: "Developers", short: "Build" },
 ] as const;
@@ -121,7 +122,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         <aside className="side-rail" aria-label="Workspace navigation">
           <div>
             <span className="side-rail__label">Trade</span>
-            {primaryNavigation.slice(0, 3).map((item) => (
+            {primaryNavigation.slice(0, 4).map((item) => (
               <Link
                 className={isActive(pathname, item.href) ? "active" : ""}
                 href={item.href}
