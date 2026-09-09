@@ -74,6 +74,7 @@ function fixture() {
     listLiveBinaryMarkets: async () => [market()],
     listPastBinaryMarkets: async () => [market()],
     getBinaryMarket: async (id) => (id.toLowerCase() === marketId ? market() : null),
+    getBinaryBookParams: async () => ({ tickSize: 1_000n, lotSize: 100_000n, minQuantity: 100_000n }),
     getMarketOnchain: async () => onchain(),
     getOpeningPrices: async () => ({ [marketId]: "70000" }),
     getResolutionPrices: async () => ({ [marketId]: null }),
@@ -202,14 +203,24 @@ test("adapter normalizes live and historical market discovery", async () => {
   assert.equal(live[0].resolution.openingPrice, "70000");
 });
 
-test("books and pool histories resolve binding and stay inside the market window", async () => {
+test("books, parameters, and pool histories resolve binding and stay inside the market window", async () => {
   const { adapter, calls } = fixture();
-  const [book, fills, candles] = await Promise.all([
+  const [book, parameters, fills, candles] = await Promise.all([
     adapter.getOrderBook(marketId, 10),
+    adapter.getBookParameters(marketId),
     adapter.getFills(marketId),
     adapter.getCandles(marketId, 60),
   ]);
   assert.equal(book.upBids[0].price, "590000");
+  assert.deepEqual(
+    {
+      tickSize: parameters.tickSize,
+      lotSize: parameters.lotSize,
+      minimumQuantity: parameters.minimumQuantity,
+      sourceBlock: parameters.freshness.sourceBlock,
+    },
+    { tickSize: "1000", lotSize: "100000", minimumQuantity: "100000", sourceBlock: "100" },
+  );
   assert.equal(fills.length, 1, "a recycled pool's other market must be excluded");
   assert.equal(candles.length, 1, "pre-market candles must be excluded");
   assert.deepEqual(calls.find(([name]) => name === "fills")[2], { since: 1900000000, until: 1900000300 });

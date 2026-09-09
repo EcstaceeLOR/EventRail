@@ -78,6 +78,15 @@ export const NormalizedOrderBookSchema = z.object({
   freshness: DataFreshnessSchema,
 });
 
+export const BookParametersSchema = z.object({
+  marketId: Bytes32Schema,
+  poolAddress: AddressSchema,
+  tickSize: UnsignedIntegerStringSchema,
+  lotSize: UnsignedIntegerStringSchema,
+  minimumQuantity: UnsignedIntegerStringSchema,
+  freshness: DataFreshnessSchema,
+});
+
 export const NormalizedFillSchema = z.object({
   network: SomniaNetworkSchema,
   venue: z.literal("dreamdex"),
@@ -206,6 +215,7 @@ export type DataFreshness = z.infer<typeof DataFreshnessSchema>;
 export type SomniaNetwork = z.infer<typeof SomniaNetworkSchema>;
 export type NormalizedMarket = z.infer<typeof NormalizedMarketSchema>;
 export type NormalizedOrderBook = z.infer<typeof NormalizedOrderBookSchema>;
+export type BookParameters = z.infer<typeof BookParametersSchema>;
 export type NormalizedFill = z.infer<typeof NormalizedFillSchema>;
 export type NormalizedCandle = z.infer<typeof NormalizedCandleSchema>;
 export type NormalizedPosition = z.infer<typeof NormalizedPositionSchema>;

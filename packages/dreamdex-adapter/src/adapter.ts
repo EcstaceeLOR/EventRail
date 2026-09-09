@@ -15,6 +15,7 @@ import {
 import type { Address, Hex } from "viem";
 import {
   DataFreshnessSchema,
+  BookParametersSchema,
   NormalizedCandleSchema,
   NormalizedClaimSchema,
   NormalizedFillSchema,
@@ -24,6 +25,7 @@ import {
   OutcomeBalancesSchema,
   ResolutionSnapshotSchema,
   type DataFreshness,
+  type BookParameters,
   type NormalizedCandle,
   type NormalizedClaim,
   type NormalizedFill,
@@ -50,6 +52,7 @@ export type DreamDexSdkReadClient = Pick<
   | "listPastBinaryMarkets"
   | "getBinaryMarket"
   | "getBinaryOrderBook"
+  | "getBinaryBookParams"
   | "getMarketOnchain"
   | "getFills"
   | "getCandles"
@@ -71,6 +74,7 @@ export interface DreamDexReadAdapter {
   listHistoricalMarkets(options?: HistoryOptions): Promise<readonly NormalizedMarket[]>;
   getMarket(marketId: string, signal?: AbortSignal): Promise<NormalizedMarket | null>;
   getOrderBook(marketId: string, depth?: number, signal?: AbortSignal): Promise<NormalizedOrderBook | null>;
+  getBookParameters(marketId: string, signal?: AbortSignal): Promise<BookParameters | null>;
   getFills(marketId: string, options?: HistoryOptions): Promise<readonly NormalizedFill[]>;
   getCandles(
     marketId: string,
@@ -176,6 +180,26 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
       ]);
       const key = market.marketId.toLowerCase();
       return this.#normalizeMarket(market, binding, opening[key] ?? null, closing[key] ?? null);
+    });
+  }
+
+  async getBookParameters(marketId: string, signal?: AbortSignal): Promise<BookParameters | null> {
+    return this.#execute("getBookParameters", signal, async () => {
+      const market = await this.#sdk.getBinaryMarket(marketId);
+      if (!market) return null;
+      const [binding, parameters] = await Promise.all([
+        this.#resolveBinding(market.marketId),
+        this.#sdk.getBinaryBookParams(market.poolAddress),
+      ]);
+      const freshness = await this.#freshness(binding.sourceBlock);
+      return BookParametersSchema.parse({
+        marketId: binding.marketId,
+        poolAddress: binding.poolAddress,
+        tickSize: parameters.tickSize.toString(),
+        lotSize: parameters.lotSize.toString(),
+        minimumQuantity: parameters.minQuantity.toString(),
+        freshness,
+      });
     });
   }
 
