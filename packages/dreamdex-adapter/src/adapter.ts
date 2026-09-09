@@ -12,7 +12,7 @@ import {
   type OpenPositionPnL,
   type SomniaMarketsClient,
 } from "@somnia-chain/markets-sdk";
-import { createPublicClient, fallback, http, type Address, type Hex } from "viem";
+import type { Address, Hex } from "viem";
 import {
   DataFreshnessSchema,
   NormalizedCandleSchema,
@@ -40,6 +40,7 @@ import {
   type DreamDexContractRegistry,
   type ResolvedMarketBinding,
 } from "./registry.js";
+import { createResilientRpcRouter } from "./resilience.js";
 
 type MarketResolutionRead = Awaited<ReturnType<SomniaMarketsClient["getMarketResolution"]>>;
 
@@ -145,12 +146,7 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
       });
       this.#sdk = exchange.client;
     }
-    this.#chain =
-      options.chainReader ??
-      createPublicClient({
-        chain: registry.chain,
-        transport: fallback(registry.rpcUrls.map((url) => http(url))),
-      });
+    this.#chain = options.chainReader ?? createResilientRpcRouter(registry);
   }
 
   async listLiveMarkets(signal?: AbortSignal): Promise<readonly NormalizedMarket[]> {
