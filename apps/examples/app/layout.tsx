@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
+import "@eventrail/react/styles.css";
+import "./style.css";
 export default function Layout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, background: "#07110f", color: "#effff8", fontFamily: "system-ui" }}>
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

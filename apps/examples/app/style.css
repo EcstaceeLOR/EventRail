@@ -1,0 +1,124 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #07110f;
+  color: #effff8;
+  font-family: Inter, system-ui, sans-serif;
+}
+.gallery {
+  margin: auto;
+  max-width: 1100px;
+  padding: 90px 28px;
+}
+.label {
+  color: #74fbc0;
+  font:
+    700 12px ui-monospace,
+    monospace;
+  letter-spacing: 0.14em;
+}
+.gallery > h1 {
+  font-size: clamp(54px, 9vw, 110px);
+  letter-spacing: -0.075em;
+  line-height: 0.86;
+  margin: 30px 0;
+}
+.gallery > p {
+  color: #8ca9a1;
+  line-height: 1.7;
+  max-width: 620px;
+}
+.gallery-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  margin-top: 70px;
+}
+.gallery-grid a {
+  background: #10211d;
+  border: 1px solid #28473d;
+  border-radius: 16px;
+  color: inherit;
+  padding: 26px;
+  text-decoration: none;
+}
+.gallery-grid b {
+  color: #74fbc0;
+  font:
+    12px ui-monospace,
+    monospace;
+}
+.gallery-grid span {
+  color: #8ca9a1;
+  font-size: 13px;
+}
+.example {
+  min-height: 100vh;
+  padding: 28px;
+}
+.example-shell {
+  margin: auto;
+  max-width: 1120px;
+}
+.example-head {
+  align-items: end;
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+.example-head a {
+  color: inherit;
+  text-decoration: none;
+}
+.example-head h1 {
+  font-size: 44px;
+  letter-spacing: -0.05em;
+  margin: 8px 0;
+}
+.widget-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.25fr 0.75fr;
+}
+.panel {
+  display: grid;
+  gap: 16px;
+}
+.streamer {
+  background: radial-gradient(circle at 80% 20%, #45205e, #111326 55%);
+}
+.streamer .example-shell {
+  max-width: 900px;
+}
+.streamer-frame {
+  border: 8px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  padding: 36px;
+}
+.community {
+  background: #f0eee7;
+  color: #17201d;
+}
+.community .conversation {
+  background: white;
+  border-radius: 18px;
+  padding: 28px;
+}
+.proof {
+  color: #8ca9a1;
+  font-size: 12px;
+  line-height: 1.6;
+  margin-top: 20px;
+}
+@media (max-width: 720px) {
+  .gallery-grid,
+  .widget-grid {
+    grid-template-columns: 1fr;
+  }
+  .example-head {
+    align-items: start;
+    flex-direction: column;
+  }
+}

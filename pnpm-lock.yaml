@@ -64,6 +64,18 @@ importers:
 
   apps/examples:
     dependencies:
+      '@eventrail/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
+      '@eventrail/react':
+        specifier: workspace:*
+        version: link:../../packages/react
+      '@tanstack/react-query':
+        specifier: 5.102.8
+        version: 5.102.8(react@19.2.8)
       next:
         specifier: 16.3.4
         version: 16.3.4(@types/node@26.5.0)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -101,6 +113,9 @@ importers:
       '@eventrail/dreamdex-adapter':
         specifier: workspace:*
         version: link:../../packages/dreamdex-adapter
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
       '@eventrail/redis':
         specifier: workspace:*
         version: link:../../packages/redis
@@ -220,6 +235,9 @@ importers:
 
   packages/database:
     dependencies:
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@eventrail/types':
         specifier: workspace:*
         version: link:../types
@@ -259,11 +277,27 @@ importers:
         specifier: 6.0.3
         version: 6.0.3
 
+  packages/platform:
+    dependencies:
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
+    devDependencies:
+      '@types/node':
+        specifier: 26.5.0
+        version: 26.5.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
   packages/react:
     dependencies:
       '@eventrail/api-client':
         specifier: workspace:*
         version: link:../api-client
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@eventrail/types':
         specifier: workspace:*
         version: link:../types
@@ -308,6 +342,9 @@ importers:
 
   packages/trading:
     dependencies:
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../platform
       '@eventrail/types':
         specifier: workspace:*
         version: link:../types
@@ -399,6 +436,25 @@ importers:
       '@eventrail/types':
         specifier: workspace:*
         version: link:../../packages/types
+    devDependencies:
+      '@types/node':
+        specifier: 26.5.0
+        version: 26.5.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+
+  workers/webhooks:
+    dependencies:
+      '@eventrail/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@eventrail/database':
+        specifier: workspace:*
+        version: link:../../packages/database
+      '@eventrail/platform':
+        specifier: workspace:*
+        version: link:../../packages/platform
     devDependencies:
       '@types/node':
         specifier: 26.5.0

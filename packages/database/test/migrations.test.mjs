@@ -38,6 +38,11 @@ test(
       assert.ok(tableResult.rows.some((row) => row.tablename === "claim_candidates"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "claim_scan_checkpoints"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "redemption_records"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "integrators"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "integrator_api_keys"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "integrator_analytics_events"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "webhook_deliveries"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "builder_attribution_receipts"));
     } finally {
       await pool.end();
     }

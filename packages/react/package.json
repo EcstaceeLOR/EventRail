@@ -2,6 +2,9 @@
   "name": "@eventrail/react",
   "version": "0.1.0",
   "private": true,
+  "sideEffects": [
+    "./src/styles.css"
+  ],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,6 +23,7 @@
   },
   "dependencies": {
     "@eventrail/api-client": "workspace:*",
+    "@eventrail/platform": "workspace:*",
     "@eventrail/types": "workspace:*",
     "@tanstack/react-query": "5.102.8"
   },

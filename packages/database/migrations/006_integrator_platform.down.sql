@@ -1,0 +1,8 @@
+DROP TABLE builder_attribution_receipts;
+DROP TABLE webhook_deliveries;
+DROP TABLE webhook_endpoints;
+DROP TABLE integrator_analytics_events;
+DROP TABLE integrator_audit_events;
+DROP TABLE integrator_configs;
+DROP TABLE integrator_api_keys;
+DROP TABLE integrators;

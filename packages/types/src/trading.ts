@@ -55,13 +55,20 @@ export const PlanPolicySchema = z.object({
 });
 
 export const PlannedCallSchema = z.object({
-  kind: z.enum(["approval", "order", "funding", "redemption"]),
+  kind: z.enum(["approval", "builder_approval", "order", "funding", "redemption"]),
   to: AddressSchema,
   data: z.string().regex(/^0x(?:[0-9a-fA-F]{2})*$/),
   value: UnsignedIntegerStringSchema,
   gas: UnsignedIntegerStringSchema,
   description: z.string().min(1),
   requiresConfirmation: z.boolean(),
+});
+
+export const BuilderAttributionSchema = z.object({
+  enabled: z.boolean(),
+  builder: AddressSchema,
+  feeBpsTimes1k: UnsignedIntegerStringSchema,
+  reason: z.enum(["approved", "disabled", "unsupported", "not_approved", "above_cap"]),
 });
 
 export const TradePlanSchema = z.object({
@@ -83,6 +90,12 @@ export const TradePlanSchema = z.object({
   orderExpiryNs: UnsignedIntegerStringSchema,
   quote: TradeQuoteSchema,
   policy: PlanPolicySchema,
+  builderAttribution: BuilderAttributionSchema.default({
+    enabled: false,
+    builder: "0x0000000000000000000000000000000000000000",
+    feeBpsTimes1k: "0",
+    reason: "disabled",
+  }),
   calls: z.array(PlannedCallSchema).min(1),
   summary: z.string().min(1),
   createdAt: IsoDateTimeSchema,

@@ -1,12 +1,34 @@
+import Link from "next/link";
 export default function Page() {
   return (
-    <main style={{ maxWidth: 900, margin: "0 auto", padding: "100px 24px" }}>
-      <p style={{ color: "#74fbc0" }}>EVENTRAIL EXAMPLES</p>
-      <h1 style={{ fontSize: 64, letterSpacing: "-.06em" }}>Integration gallery</h1>
-      <p style={{ color: "#8ca9a1", lineHeight: 1.7 }}>
-        Wallet, live market streamer, community widget, and agent examples will live here as independently
-        deployable reference applications.
+    <main className="gallery">
+      <p className="label">EVENTRAIL / EXAMPLES</p>
+      <h1>
+        Three products.
+        <br />
+        One event rail.
+      </h1>
+      <p>
+        Each reference integration consumes the public package boundary and live gateway—no private imports or
+        fixture shortcuts.
       </p>
+      <div className="gallery-grid">
+        <Link href="/wallet">
+          <b>01</b>
+          <h2>Wallet terminal</h2>
+          <span>Portfolio-native event trading →</span>
+        </Link>
+        <Link href="/streamer">
+          <b>02</b>
+          <h2>Streamer overlay</h2>
+          <span>Audience prediction moments →</span>
+        </Link>
+        <Link href="/community">
+          <b>03</b>
+          <h2>Community pulse</h2>
+          <span>Shared market conversations →</span>
+        </Link>
+      </div>
     </main>
   );
 }

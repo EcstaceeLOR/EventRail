@@ -32,3 +32,13 @@ export {
   useTrades,
 } from "./live-data.js";
 export type { DataViewState, EventRailProviderProps, LiveDataView } from "./live-data.js";
+export {
+  EventRailClaims,
+  EventRailEmbedError,
+  EventRailEmbedProvider,
+  EventRailMarketCard,
+  EventRailOracleProof,
+  EventRailPositions,
+  EventRailTradeSheet,
+} from "./embed.js";
+export type { EventRailEmbedProviderProps } from "./embed.js";

@@ -1,0 +1,24 @@
+{
+  "name": "@eventrail/worker-webhooks",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "node --watch dist/runner.js",
+    "start": "node dist/runner.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+  },
+  "dependencies": {
+    "@eventrail/config": "workspace:*",
+    "@eventrail/database": "workspace:*",
+    "@eventrail/platform": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "typescript": "6.0.3"
+  }
+}
