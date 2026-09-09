@@ -92,8 +92,8 @@ export const NormalizedFillSchema = z.object({
   price: UnsignedIntegerStringSchema,
   quantity: UnsignedIntegerStringSchema,
   quoteQuantity: UnsignedIntegerStringSchema,
-  maker: AddressSchema,
-  taker: AddressSchema,
+  maker: AddressSchema.nullable(),
+  taker: AddressSchema.nullable(),
 });
 
 export const NormalizedCandleSchema = z.object({
@@ -130,6 +130,22 @@ export const NormalizedClaimSchema = z.object({
   amount: UnsignedIntegerStringSchema,
   estimatedPayout: UnsignedIntegerStringSchema,
   status: z.enum(["claimable", "claimed", "unavailable"]),
+  freshness: DataFreshnessSchema,
+});
+
+export const OutcomeBalancesSchema = z.object({
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  marketAddress: AddressSchema,
+  up: UnsignedIntegerStringSchema,
+  down: UnsignedIntegerStringSchema,
+  freshness: DataFreshnessSchema,
+});
+
+export const ResolutionSnapshotSchema = z.object({
+  marketId: Bytes32Schema,
+  resolution: MarketResolutionSchema,
+  eventCount: UnsignedIntegerStringSchema,
   freshness: DataFreshnessSchema,
 });
 
@@ -180,5 +196,7 @@ export type NormalizedFill = z.infer<typeof NormalizedFillSchema>;
 export type NormalizedCandle = z.infer<typeof NormalizedCandleSchema>;
 export type NormalizedPosition = z.infer<typeof NormalizedPositionSchema>;
 export type NormalizedClaim = z.infer<typeof NormalizedClaimSchema>;
+export type OutcomeBalances = z.infer<typeof OutcomeBalancesSchema>;
+export type ResolutionSnapshot = z.infer<typeof ResolutionSnapshotSchema>;
 export type ExecutableQuote = z.infer<typeof ExecutableQuoteSchema>;
 export type DataStreamEvent = z.infer<typeof DataStreamEventSchema>;
