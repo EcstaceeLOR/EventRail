@@ -1,0 +1,9 @@
+# Default ownership
+* @EcstaceeLOR
+
+# Signer, protocol, and public-contract boundaries
+/packages/dreamdex-adapter/ @EcstaceeLOR
+/packages/types/ @EcstaceeLOR
+/openapi/ @EcstaceeLOR
+/docs/architecture/ @EcstaceeLOR
+/.github/ @EcstaceeLOR

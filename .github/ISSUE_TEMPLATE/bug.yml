@@ -1,0 +1,50 @@
+name: Bug report
+description: Report reproducible incorrect behavior in EventRail.
+title: "[BUG] "
+labels: [bug, needs-triage]
+body:
+  - type: markdown
+    attributes:
+      value: Do not disclose vulnerabilities or secrets here. Follow SECURITY.md for private reporting.
+  - type: input
+    id: revision
+    attributes:
+      label: EventRail version or commit
+      placeholder: v0.1.0 or commit SHA
+    validations:
+      required: true
+  - type: dropdown
+    id: network
+    attributes:
+      label: Network
+      options:
+        - Shannon testnet
+        - Somnia mainnet
+        - Local or mocked
+        - Not applicable
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Provide minimal steps and sanitized logs. Never include wallet keys or tokens.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Browser or Node version, operating system, wallet, and relevant configuration.
