@@ -137,5 +137,16 @@ export const HealthStatusSchema = z.object({
   service: z.string().min(1),
   version: z.string().min(1),
   timestamp: isoDateTime,
+  planningEnabled: z.boolean().optional(),
+  metrics: z.record(z.string(), z.number()).optional(),
+  alerts: z
+    .array(
+      z.object({
+        code: z.string().min(1),
+        severity: z.enum(["warning", "critical"]),
+        message: z.string().min(1),
+      }),
+    )
+    .optional(),
 });
 export type HealthStatus = z.infer<typeof HealthStatusSchema>;

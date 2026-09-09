@@ -23,6 +23,9 @@ export const ServerEnvironmentSchema = z.object({
   ),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
   API_AUTH_REQUIRED: z.preprocess((value) => value === "1" || value === "true", z.boolean()).default(false),
+  TRANSACTION_PLANNING_ENABLED: z
+    .preprocess((value) => value !== "0" && value !== "false", z.boolean())
+    .default(true),
   API_KEY_PEPPER: z.string().min(16).default("local-only-change-me"),
   WEBHOOK_SIGNING_KEY: z.string().min(16).default("local-webhook-key"),
   EVENTRAIL_BUILDER_ADDRESS: z.preprocess(
@@ -57,5 +60,6 @@ export function describeServerEnvironment(config: ServerEnvironment) {
     somniaRpcHost: new URL(config.SOMNIA_RPC_URL).host,
     dreamDexIndexerHost: new URL(config.DREAMDEX_INDEXER_URL).host,
     apiAuthRequired: config.API_AUTH_REQUIRED,
+    transactionPlanningEnabled: config.TRANSACTION_PLANNING_ENABLED,
   } as const;
 }

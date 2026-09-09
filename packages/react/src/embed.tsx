@@ -163,7 +163,14 @@ export function EventRailTradeSheet({
       >
         Review wallet transaction
       </Button>
-      <small>Your host application controls wallet signing and submission.</small>
+      <small>
+        Your host application controls wallet signing and submission. Event contracts can lose their full
+        cost.
+        <a href="/legal/risk" target="_blank" rel="noreferrer">
+          Review risks
+        </a>
+        .
+      </small>
     </Card>
   );
 }

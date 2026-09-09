@@ -15,7 +15,7 @@ import {
   PostgresIntegratorRepository,
 } from "@eventrail/database";
 import { TradePlanner } from "@eventrail/trading";
-import { ApiAccessService } from "@eventrail/platform";
+import { ApiAccessService, OperationalMonitor } from "@eventrail/platform";
 
 const config = loadServerEnvironment(process.env);
 const { listen } = describeServerEnvironment(config);
@@ -25,9 +25,13 @@ const database = createDatabasePool(config.DATABASE_URL);
 const executions = new PostgresTradeExecutionRepository(database);
 const integrators = new PostgresIntegratorRepository(database);
 const registry = getDreamDexRegistry("shannon");
+const monitor = new OperationalMonitor();
+monitor.set("planning_enabled", config.TRANSACTION_PLANNING_ENABLED ? 1 : 0);
 const binaryModule = registry.addresses.binaryModule;
 if (!binaryModule) throw new Error("DreamDEX binary module is not configured");
 const app = createGateway({
+  monitor,
+  planningEnabled: config.TRANSACTION_PLANNING_ENABLED,
   apiAccess: new ApiAccessService(integrators, config.API_KEY_PEPPER),
   apiAuthRequired: config.API_AUTH_REQUIRED,
   apiEnvironment: config.APP_ENV === "production" ? "live" : "test",

@@ -9,6 +9,8 @@ export default tseslint.config(
       "**/coverage/**",
       "**/dist/**",
       "**/node_modules/**",
+      "playwright-report/**",
+      "test-results/**",
       "**/*.d.ts",
     ],
   },

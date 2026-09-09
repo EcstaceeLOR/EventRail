@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { FundingConsole } from "../../components/funding-console";
+import { RiskNotice } from "../../components/risk-notice";
 
 export const metadata: Metadata = { title: "Fund USDso" };
 
@@ -18,6 +19,7 @@ export default async function FundingPage({
           <p>A focused path from native Somnia liquidity to event-contract collateral.</p>
         </div>
       </div>
+      <RiskNotice context="funding" />
       <FundingConsole initialAmount={query.amount ?? "25"} returnTo={returnTo} />
     </section>
   );

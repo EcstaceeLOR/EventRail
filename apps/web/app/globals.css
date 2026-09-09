@@ -1571,6 +1571,88 @@ pre b {
   font-size: clamp(18px, 2vw, 25px);
   letter-spacing: -0.04em;
 }
+
+.risk-notice {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.65rem 1rem;
+  align-items: center;
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 42%, var(--line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--warning) 7%, var(--surface));
+  font-size: 0.84rem;
+}
+
+.risk-notice strong {
+  color: var(--warning);
+}
+.risk-notice span {
+  color: var(--muted);
+}
+.risk-notice a {
+  white-space: nowrap;
+}
+
+.legal-page {
+  max-width: 54rem;
+}
+.legal-page > h1 {
+  margin: 0.5rem 0;
+  font-size: clamp(2.2rem, 6vw, 4rem);
+}
+.legal-intro {
+  color: var(--muted);
+  font-size: 1.15rem;
+  line-height: 1.7;
+}
+.legal-page section {
+  margin: 2rem 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--line);
+}
+.legal-page section h2 {
+  margin: 0 0 0.55rem;
+}
+.legal-page section p {
+  color: var(--muted);
+  line-height: 1.75;
+}
+
+.status-banner--degraded {
+  border-color: color-mix(in srgb, var(--warning) 55%, var(--line));
+}
+.status-banner--degraded > i,
+.service-degraded i {
+  background: var(--warning) !important;
+}
+.service-degraded {
+  color: var(--warning) !important;
+}
+.status-alerts {
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+}
+.status-alerts h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+}
+.status-alerts p {
+  margin: 0.35rem 0;
+  color: var(--warning);
+}
+
+@media (max-width: 720px) {
+  .risk-notice {
+    grid-template-columns: 1fr;
+  }
+  .risk-notice a {
+    white-space: normal;
+  }
+}
 .portfolio-filter-rail {
   display: grid;
   grid-template-columns: repeat(3, minmax(150px, 190px)) 1fr;
