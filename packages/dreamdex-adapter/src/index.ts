@@ -4,6 +4,8 @@ import { somniaShannon } from "@somnia-chain/markets-sdk/chains";
 import { createPublicClient, formatUnits, http } from "viem";
 import type { EventMarket, TransactionPlan } from "@eventrail/types";
 
+export * from "./registry.js";
+
 export const SOMNIA_SHANNON_CHAIN_ID = 50_312;
 export const DREAMDEX_SHANNON_INDEXER_URL = "https://dev.smk.somnia.host/v1/graphql";
 export const SOMNIA_SHANNON_RPC_URL = "https://dream-rpc.somnia.network";
