@@ -3,16 +3,23 @@ info:
   title: EventRail API
   version: 1.0.0
   description: Versioned, non-custodial DreamDEX Event Contract data and transaction planning.
+  license:
+    name: MIT
+    identifier: MIT
 servers:
   - url: http://localhost:4000
     description: Local development
 tags:
   - name: System
+    description: Operational service endpoints.
   - name: Markets
+    description: Normalized DreamDEX Event Contract market data.
   - name: Plans
+    description: Non-custodial transaction planning endpoints.
 paths:
   /v1/health:
     get:
+      summary: Read gateway health
       tags: [System]
       operationId: getHealth
       responses:
@@ -21,9 +28,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
+        "400": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
   /v1/markets:
     get:
+      summary: List event markets
       tags: [Markets]
       operationId: listMarkets
       parameters:
@@ -38,9 +47,11 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/MarketPage" }
+        "400": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
   /v1/markets/{marketId}:
     get:
+      summary: Read one event market
       tags: [Markets]
       operationId: getMarket
       parameters:
@@ -55,6 +66,7 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /v1/transaction-plans/trades:
     post:
+      summary: Plan an event-contract trade
       tags: [Plans]
       operationId: planTrade
       description: Produces an expiring plan. The connected wallet remains the only transaction signer.
@@ -75,6 +87,7 @@ paths:
         default: { $ref: "#/components/responses/Error" }
   /v1/streams/markets:
     get:
+      summary: Stream event-market updates
       tags: [Markets]
       operationId: streamMarkets
       description: Server-sent event stream. Resume using Last-Event-ID.
@@ -89,6 +102,7 @@ paths:
           content:
             text/event-stream:
               schema: { $ref: "#/components/schemas/StreamEvent" }
+        "400": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
 components:
   parameters:

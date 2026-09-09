@@ -9,3 +9,9 @@ linkWorkspacePackages: true
 nodeLinker: hoisted
 packageImportMethod: copy
 strictPeerDependencies: true
+
+# WalletConnect's optional Solana surface still declares TypeScript 5 even though
+# EventRail's EVM-only connector is compiled and tested with TypeScript 6.
+peerDependencyRules:
+  allowedVersions:
+    typescript: "6.0.3"

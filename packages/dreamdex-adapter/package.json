@@ -23,7 +23,7 @@
     "@eventrail/types": "workspace:*",
     "@somnia-chain/markets-sdk": "0.29.0",
     "graphql": "16.11.0",
-    "viem": "2.37.6"
+    "viem": "2.56.3"
   },
   "devDependencies": {
     "@types/node": "26.5.0",

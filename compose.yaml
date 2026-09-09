@@ -1,0 +1,47 @@
+name: eventrail
+
+services:
+  postgres:
+    image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+    environment:
+      POSTGRES_DB: eventrail
+      POSTGRES_USER: eventrail
+      POSTGRES_PASSWORD: eventrail_local
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - eventrail_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventrail -d eventrail"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks: [eventrail_internal]
+
+  redis:
+    image: redis:8.8-alpine@sha256:96cb544fa0af5aa898d160cffb7dae70c3df117190fc123831c64712cda425ff
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - eventrail_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+    networks: [eventrail_internal]
+
+volumes:
+  eventrail_postgres_data:
+    name: eventrail_postgres_data
+  eventrail_redis_data:
+    name: eventrail_redis_data
+
+networks:
+  eventrail_internal:
+    name: eventrail_internal

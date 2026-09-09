@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
-  transpilePackages: ["@eventrail/core", "@eventrail/types"],
+  transpilePackages: ["@eventrail/config", "@eventrail/core", "@eventrail/react", "@eventrail/types"],
 };
 
 export default nextConfig;

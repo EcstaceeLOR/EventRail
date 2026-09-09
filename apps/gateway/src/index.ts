@@ -1,10 +1,12 @@
 import { createGateway } from "./app.js";
+import { describeServerEnvironment, loadServerEnvironment } from "@eventrail/config/server";
 
-const port = Number(process.env.PORT ?? 4_000);
-const host = process.env.HOST ?? "127.0.0.1";
+const config = loadServerEnvironment(process.env);
+const { listen } = describeServerEnvironment(config);
 
 const app = createGateway();
-await app.listen({ host, port });
+app.log.info({ configuration: describeServerEnvironment(config) }, `Starting EventRail gateway on ${listen}`);
+await app.listen({ host: config.HOST, port: config.PORT });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
   process.on(signal, async () => {

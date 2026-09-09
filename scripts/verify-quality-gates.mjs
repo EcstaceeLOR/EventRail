@@ -1,11 +1,14 @@
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const executable = (name) =>
   resolve("node_modules", ".bin", `${name}${process.platform === "win32" ? ".cmd" : ""}`);
-const fixtureDirectory = mkdtempSync(join(tmpdir(), "eventrail-quality-gates-"));
+const fixtureRoot = resolve("scripts");
+const fixtureDirectory = mkdtempSync(join(fixtureRoot, ".quality-gate-"));
+if (dirname(fixtureDirectory) !== fixtureRoot) {
+  throw new Error("Quality-gate fixtures must stay inside the scripts directory.");
+}
 
 const fixtures = {
   lint: join(fixtureDirectory, "intentional-lint-failure.js"),

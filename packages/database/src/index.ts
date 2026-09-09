@@ -1,5 +1,8 @@
 import type { EventMarket } from "@eventrail/types";
 
+export { createDatabasePool, withDatabaseTransaction } from "./pool.js";
+export type { DatabasePool } from "./pool.js";
+
 export interface MarketRepository {
   upsertMany(markets: readonly EventMarket[]): Promise<void>;
   findAll(): Promise<readonly EventMarket[]>;
