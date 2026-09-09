@@ -263,6 +263,24 @@ export class EventRailClient {
     });
   }
 
+  createBuilderApprovalPlan(
+    input: { poolAddress: `0x${string}`; maxFeeBpsTimes1k: string },
+    signal?: AbortSignal,
+  ): Promise<{ builder: `0x${string}`; feeBpsTimes1k: string; call: unknown }> {
+    return this.#request(
+      "/v1/builders/approval-plans",
+      z.object({
+        builder: z
+          .string()
+          .regex(/^0x[0-9a-fA-F]{40}$/)
+          .transform((value) => value as `0x${string}`),
+        feeBpsTimes1k: z.string().regex(/^[1-9][0-9]*$/),
+        call: z.unknown(),
+      }),
+      { method: "POST", body: JSON.stringify(input), ...optionalSignal(signal) },
+    );
+  }
+
   async submitTrade(
     input: {
       planId: string;

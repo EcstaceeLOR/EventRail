@@ -17,10 +17,24 @@ import {
 } from "@eventrail/types";
 import {
   createRedemptionPlan,
+  createBuilderApprovalCall,
   PlanConflictError,
   RedemptionPlanError,
   type CreateTradePlanInput,
 } from "@eventrail/trading";
+import {
+  ApiAccessError,
+  ANALYTICS_EVENTS,
+  EmbedConfigSchema,
+  deriveWebhookSecret,
+  extractBearerToken,
+  type ApiAccessService,
+  type ApiEnvironment,
+  type ApiKeyRecord,
+  type EmbedConfig,
+  type AnalyticsEvent,
+  type WebhookEventName,
+} from "@eventrail/platform";
 
 export interface PublicEventStream {
   subscribe(options: {
@@ -31,6 +45,54 @@ export interface PublicEventStream {
 }
 
 export interface GatewayOptions {
+  apiAccess?: ApiAccessService;
+  apiAuthRequired?: boolean;
+  apiEnvironment?: ApiEnvironment;
+  integrators?: {
+    create(name: string, ownerAddress?: string): Promise<{ id: string; name: string }>;
+    listKeys(integratorId: string): Promise<Array<Omit<ApiKeyRecord, "secretHash">>>;
+    revoke(id: string, at: string): Promise<void>;
+    saveConfig(integratorId: string, environment: ApiEnvironment, config: EmbedConfig): Promise<void>;
+    getConfig(integratorId: string, environment: ApiEnvironment): Promise<unknown | null>;
+    audit(integratorId: string, actor: string, action: string, metadata?: unknown): Promise<void>;
+    recordAnalytics(events: readonly AnalyticsEvent[]): Promise<number>;
+    analytics(
+      integratorId: string,
+      environment: ApiEnvironment,
+      from: string,
+      to: string,
+      filters?: { embedId?: string; marketId?: string },
+    ): Promise<unknown>;
+    setAnalyticsRetention(integratorId: string, days: number): Promise<void>;
+    createWebhook(
+      integratorId: string,
+      url: string,
+      events: readonly WebhookEventName[],
+    ): Promise<{
+      id: string;
+      keyId: string;
+      integratorId: string;
+      url: string;
+      events: readonly WebhookEventName[];
+      enabled: boolean;
+    }>;
+    listWebhooks(integratorId: string): Promise<unknown>;
+    rotateWebhook(
+      integratorId: string,
+      endpointId: string,
+    ): Promise<{ keyId: string; previousKeyId: string } | null>;
+    replayWebhook(integratorId: string, deliveryId: string): Promise<boolean>;
+    listWebhookDeliveries(integratorId: string, status?: string): Promise<unknown>;
+  };
+  webhookMasterKey?: string;
+  builder?: {
+    address: `0x${string}`;
+    feeBpsTimes1k: bigint;
+    getCapability(input: { account: `0x${string}`; pool: `0x${string}`; builder: `0x${string}` }): Promise<{
+      poolCapBpsTimes1k: bigint;
+      userApprovalBpsTimes1k: bigint;
+    } | null>;
+  };
   eventStream?: PublicEventStream;
   dataReader?: DreamDexReadAdapter;
   heartbeatMs?: number;
@@ -95,6 +157,7 @@ const TradePlanRequestSchema = z.object({
   idempotencyKey: z.string().min(8).max(128),
   quote: TradeQuoteSchema,
   policy: PlanPolicySchema,
+  builderFeeApproved: z.boolean().default(false),
 });
 const FundingRouteRequestSchema = z.object({
   account: AccountParamsSchema.shape.account,
@@ -128,9 +191,107 @@ const RedemptionPlanRequestSchema = z.object({
   account: AccountParamsSchema.shape.account,
   marketId: MarketParamsSchema.shape.marketId,
 });
+const IntegratorCreateSchema = z.object({
+  name: z.string().min(2).max(80),
+  ownerAddress: AccountParamsSchema.shape.account.optional(),
+});
+const IntegratorParamsSchema = z.object({ integratorId: z.uuid() });
+const KeyParamsSchema = IntegratorParamsSchema.extend({ keyId: z.uuid() });
+const KeyCreateSchema = z.object({
+  label: z.string().min(1).max(80),
+  kind: z.enum(["public", "server"]),
+  environment: z.enum(["test", "live"]),
+  allowedOrigins: z.array(z.url()).max(20).default([]),
+  requestsPerMinute: z.number().int().min(1).max(100_000).default(120),
+});
+const ConfigQuerySchema = z.object({ environment: z.enum(["test", "live"]).default("test") });
+const BuilderApprovalSchema = z.object({
+  poolAddress: AccountParamsSchema.shape.account,
+  maxFeeBpsTimes1k: z.string().regex(/^[1-9][0-9]*$/),
+});
+const AnalyticsEventSchema = z.object({
+  id: z.string().min(8).max(128),
+  environment: z.enum(["test", "live"]),
+  embedId: z.string().min(1).max(80),
+  name: z.enum(ANALYTICS_EVENTS),
+  marketId: MarketParamsSchema.shape.marketId.optional(),
+  transactionHash: z
+    .string()
+    .regex(/^0x[0-9a-fA-F]{64}$/)
+    .optional(),
+  volume: z
+    .string()
+    .regex(/^(0|[1-9][0-9]*)$/)
+    .optional(),
+  occurredAt: z.iso.datetime(),
+});
+const AnalyticsQuerySchema = ConfigQuerySchema.extend({
+  from: z.iso.datetime(),
+  to: z.iso.datetime(),
+  embedId: z.string().min(1).max(80).optional(),
+  marketId: MarketParamsSchema.shape.marketId.optional(),
+});
+const AnalyticsRetentionSchema = z.object({ days: z.number().int().min(1).max(365) });
+const WebhookCreateSchema = z.object({
+  url: z.url().refine((value) => value.startsWith("https://"), "Webhooks require HTTPS."),
+  events: z.array(z.enum(["fill.created", "market.rolled-over", "market.settled", "claim.updated"])).min(1),
+});
+const WebhookParamsSchema = IntegratorParamsSchema.extend({ endpointId: z.uuid() });
+const DeliveryParamsSchema = IntegratorParamsSchema.extend({ deliveryId: z.uuid() });
+const DeliveryQuerySchema = z.object({
+  status: z.enum(["pending", "retry", "delivered", "dead_letter"]).optional(),
+});
 
 export function createGateway(options: GatewayOptions = {}) {
   const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] } });
+  const principals = new WeakMap<object, ApiKeyRecord>();
+
+  app.setErrorHandler((error, request, reply) => {
+    if (error instanceof z.ZodError) {
+      return reply.code(400).send({
+        error: {
+          code: "BAD_REQUEST",
+          message: "The request did not match the public API contract.",
+          requestId: request.id,
+          recoverable: false,
+          details: error.issues.map((issue) => ({ path: issue.path.join("."), message: issue.message })),
+        },
+      });
+    }
+    request.log.error({ err: error }, "Gateway request failed");
+    return reply.code(500).send({
+      error: {
+        code: "INTERNAL_ERROR",
+        message: "The request could not be completed.",
+        requestId: request.id,
+        recoverable: true,
+      },
+    });
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
+    if (!options.apiAccess) return;
+    const publicOnboarding = request.method === "POST" && request.url.split("?")[0] === "/v1/integrators";
+    if (request.url.startsWith("/v1/health") || publicOnboarding) return;
+    const management = request.url.startsWith("/v1/integrators/");
+    if (!options.apiAuthRequired && !management) return;
+    try {
+      const token = extractBearerToken(request.headers.authorization);
+      const principal = await options.apiAccess.authenticate({
+        ...(token ? { token } : {}),
+        ...(request.headers.origin ? { origin: request.headers.origin } : {}),
+        environment: options.apiEnvironment ?? "test",
+        ...(request.routeOptions.url ? { endpoint: request.routeOptions.url } : {}),
+      });
+      principals.set(request, principal);
+      reply.header("x-ratelimit-limit", principal.requestsPerMinute);
+    } catch (error) {
+      if (error instanceof ApiAccessError) {
+        return reply.code(error.status).send({ error: { code: error.code, message: error.message } });
+      }
+      throw error;
+    }
+  });
 
   app.get("/v1/health", async (): Promise<HealthStatus> => ({
     status: "ok",
@@ -138,6 +299,206 @@ export function createGateway(options: GatewayOptions = {}) {
     version: "0.1.0",
     timestamp: new Date().toISOString(),
   }));
+
+  app.post("/v1/integrators", async (request, reply) => {
+    if (!options.integrators || !options.apiAccess) {
+      return reply.code(503).send({ error: "Integrator management is unavailable" });
+    }
+    const input = IntegratorCreateSchema.parse(request.body);
+    const integrator = await options.integrators.create(input.name, input.ownerAddress);
+    const issued = await options.apiAccess.issue({
+      integratorId: integrator.id,
+      label: "Initial server key",
+      kind: "server",
+      environment: options.apiEnvironment ?? "test",
+    });
+    await options.integrators.audit(integrator.id, input.ownerAddress ?? "onboarding", "integrator.created");
+    return reply.code(201).send({ integrator, apiKey: issued });
+  });
+
+  app.get("/v1/integrators/:integratorId/keys", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Integrator management is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    return options.integrators.listKeys(integratorId);
+  });
+
+  app.post("/v1/integrators/:integratorId/keys", async (request, reply) => {
+    if (!options.integrators || !options.apiAccess) {
+      return reply.code(503).send({ error: "Integrator management is unavailable" });
+    }
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    const input = KeyCreateSchema.parse(request.body);
+    const issued = await options.apiAccess.issue({ integratorId, ...input });
+    await options.integrators.audit(integratorId, principal.prefix, "api_key.created", {
+      keyId: issued.key.id,
+      kind: input.kind,
+      environment: input.environment,
+    });
+    return reply.code(201).send(issued);
+  });
+
+  app.delete("/v1/integrators/:integratorId/keys/:keyId", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Integrator management is unavailable" });
+    const { integratorId, keyId } = KeyParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    await options.integrators.revoke(keyId, new Date().toISOString());
+    await options.integrators.audit(integratorId, principal.prefix, "api_key.revoked", { keyId });
+    return reply.code(204).send();
+  });
+
+  app.get("/v1/integrators/:integratorId/config", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Integrator management is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    const { environment } = ConfigQuerySchema.parse(request.query);
+    const config = await options.integrators.getConfig(integratorId, environment);
+    return config ?? reply.code(404).send({ error: "Embed configuration not found" });
+  });
+
+  app.put("/v1/integrators/:integratorId/config", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Integrator management is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    const { environment } = ConfigQuerySchema.parse(request.query);
+    const config = EmbedConfigSchema.parse(request.body);
+    if (BigInt(config.defaultSpend) > BigInt(config.risk.maxSpend)) {
+      return reply
+        .code(400)
+        .send({ error: { code: "UNSAFE_CONFIG", message: "Default spend exceeds the mandatory maximum." } });
+    }
+    await options.integrators.saveConfig(integratorId, environment, config);
+    await options.integrators.audit(integratorId, principal.prefix, "embed_config.updated", { environment });
+    return config;
+  });
+
+  app.post("/v1/integrators/:integratorId/analytics/events", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Analytics is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    const rows = z.array(AnalyticsEventSchema).min(1).max(100).parse(request.body);
+    const accepted = await options.integrators.recordAnalytics(
+      rows.map((row) => ({
+        id: row.id,
+        integratorId,
+        environment: row.environment,
+        embedId: row.embedId,
+        name: row.name,
+        occurredAt: row.occurredAt,
+        ...(row.marketId ? { marketId: row.marketId } : {}),
+        ...(row.transactionHash ? { transactionHash: row.transactionHash } : {}),
+        ...(row.volume ? { volume: row.volume } : {}),
+      })),
+    );
+    return reply.code(202).send({ accepted });
+  });
+
+  app.get("/v1/integrators/:integratorId/analytics/summary", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Analytics is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    const query = AnalyticsQuerySchema.parse(request.query);
+    return options.integrators.analytics(integratorId, query.environment, query.from, query.to, {
+      ...(query.embedId ? { embedId: query.embedId } : {}),
+      ...(query.marketId ? { marketId: query.marketId } : {}),
+    });
+  });
+
+  app.put("/v1/integrators/:integratorId/analytics/retention", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Analytics is unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    const { days } = AnalyticsRetentionSchema.parse(request.body);
+    await options.integrators.setAnalyticsRetention(integratorId, days);
+    await options.integrators.audit(integratorId, principal.prefix, "analytics.retention_updated", {
+      days,
+    });
+    return { days };
+  });
+
+  app.get("/v1/integrators/:integratorId/webhooks", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Webhooks are unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    return options.integrators.listWebhooks(integratorId);
+  });
+
+  app.post("/v1/integrators/:integratorId/webhooks", async (request, reply) => {
+    if (!options.integrators || !options.webhookMasterKey)
+      return reply.code(503).send({ error: "Webhooks are unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    const input = WebhookCreateSchema.parse(request.body);
+    const endpoint = await options.integrators.createWebhook(integratorId, input.url, input.events);
+    const signingSecret = deriveWebhookSecret(
+      options.webhookMasterKey,
+      integratorId,
+      endpoint.id,
+      endpoint.keyId,
+    );
+    await options.integrators.audit(integratorId, principal.prefix, "webhook.created", {
+      endpointId: endpoint.id,
+    });
+    return reply.code(201).send({ endpoint, signingSecret });
+  });
+
+  app.post("/v1/integrators/:integratorId/webhooks/:endpointId/rotate", async (request, reply) => {
+    if (!options.integrators || !options.webhookMasterKey)
+      return reply.code(503).send({ error: "Webhooks are unavailable" });
+    const { integratorId, endpointId } = WebhookParamsSchema.parse(request.params);
+    const principal = principalFor(request, principals, integratorId, reply);
+    if (!principal) return;
+    const rotation = await options.integrators.rotateWebhook(integratorId, endpointId);
+    if (!rotation) return reply.code(404).send({ error: "Webhook not found" });
+    await options.integrators.audit(integratorId, principal.prefix, "webhook.secret_rotated", { endpointId });
+    return {
+      keyId: rotation.keyId,
+      signingSecret: deriveWebhookSecret(options.webhookMasterKey, integratorId, endpointId, rotation.keyId),
+      previousSecretValidForSeconds: 86_400,
+    };
+  });
+
+  app.post("/v1/integrators/:integratorId/webhook-deliveries/:deliveryId/replay", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Webhooks are unavailable" });
+    const { integratorId, deliveryId } = DeliveryParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    return (await options.integrators.replayWebhook(integratorId, deliveryId))
+      ? reply.code(202).send({ accepted: true })
+      : reply.code(404).send({ error: "Dead-letter delivery not found" });
+  });
+
+  app.get("/v1/integrators/:integratorId/webhook-deliveries", async (request, reply) => {
+    if (!options.integrators) return reply.code(503).send({ error: "Webhooks are unavailable" });
+    const { integratorId } = IntegratorParamsSchema.parse(request.params);
+    if (!principalFor(request, principals, integratorId, reply)) return;
+    const { status } = DeliveryQuerySchema.parse(request.query);
+    return options.integrators.listWebhookDeliveries(integratorId, status);
+  });
+
+  app.post("/v1/builders/approval-plans", async (request, reply) => {
+    if (!options.builder)
+      return reply
+        .code(404)
+        .send({ error: { code: "ATTRIBUTION_DISABLED", message: "Builder attribution is disabled." } });
+    const input = BuilderApprovalSchema.parse(request.body);
+    const requested = BigInt(input.maxFeeBpsTimes1k);
+    if (requested !== options.builder.feeBpsTimes1k) {
+      return reply
+        .code(400)
+        .send({ error: { code: "FEE_MISMATCH", message: "Approve the exact fee displayed by EventRail." } });
+    }
+    return {
+      builder: options.builder.address,
+      feeBpsTimes1k: requested.toString(),
+      call: createBuilderApprovalCall(input.poolAddress as `0x${string}`, options.builder.address, requested),
+    };
+  });
 
   app.get("/v1/markets", async () => []);
 
@@ -268,6 +629,14 @@ export function createGateway(options: GatewayOptions = {}) {
         minimumTimeRemainingSeconds: input.policy.minimumTimeRemainingSeconds,
       });
       assertQuoteStillExecutable(input.quote, refreshed);
+      const capability =
+        input.builderFeeApproved && options.builder
+          ? await options.builder.getCapability({
+              account: input.account as `0x${string}`,
+              pool: market.poolAddress as `0x${string}`,
+              builder: options.builder.address,
+            })
+          : null;
       return await options.tradePlanner.create({
         idempotencyKey: input.idempotencyKey,
         chainId: market.network === "shannon" ? 50_312 : 5_031,
@@ -278,6 +647,16 @@ export function createGateway(options: GatewayOptions = {}) {
         downTokenId: market.downTokenId,
         quote: input.quote,
         policy: input.policy,
+        builder: {
+          requested: input.builderFeeApproved,
+          ...(options.builder
+            ? {
+                address: options.builder.address,
+                feeBpsTimes1k: options.builder.feeBpsTimes1k,
+                capability,
+              }
+            : {}),
+        },
       });
     } catch (error) {
       if (error instanceof PlanConflictError) {
@@ -494,4 +873,24 @@ function assertQuoteStillExecutable(
       true,
     );
   }
+}
+
+function principalFor(
+  request: object,
+  principals: WeakMap<object, ApiKeyRecord>,
+  integratorId: string,
+  reply: { code(status: number): { send(payload: unknown): unknown } },
+): ApiKeyRecord | null {
+  const principal = principals.get(request);
+  if (!principal) {
+    reply.code(401).send({ error: { code: "INVALID_KEY", message: "An API key is required." } });
+    return null;
+  }
+  if (principal.integratorId !== integratorId) {
+    reply
+      .code(403)
+      .send({ error: { code: "TENANT_DENIED", message: "The API key cannot access this integrator." } });
+    return null;
+  }
+  return principal;
 }

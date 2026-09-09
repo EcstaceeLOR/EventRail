@@ -16,6 +16,7 @@
     "@eventrail/core": "workspace:*",
     "@eventrail/database": "workspace:*",
     "@eventrail/dreamdex-adapter": "workspace:*",
+    "@eventrail/platform": "workspace:*",
     "@eventrail/redis": "workspace:*",
     "@eventrail/trading": "workspace:*",
     "@eventrail/types": "workspace:*",

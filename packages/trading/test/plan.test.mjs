@@ -4,6 +4,7 @@ import { binaryPoolWriteAbi, erc20WriteAbi } from "@somnia-chain/markets-sdk";
 import { decodeFunctionData } from "viem";
 import {
   computeTradePlanHash,
+  createBuilderApprovalCall,
   InMemoryTradePlanStore,
   PlanConflictError,
   TradePlanner,
@@ -104,7 +105,42 @@ test("idempotency returns the original plan and rejects conflicting intents", as
   );
 });
 
+test("builder attribution is included only when the runtime cap and wallet approval cover the exact fee", async () => {
+  const builder = `0x${"55".repeat(20)}`;
+  const tagged = await planner().create({
+    ...baseInput,
+    builder: {
+      requested: true,
+      address: builder,
+      feeBpsTimes1k: 1500n,
+      capability: { poolCapBpsTimes1k: 2000n, userApprovalBpsTimes1k: 1500n },
+    },
+  });
+  const order = decodeFunctionData({ abi: binaryPoolWriteAbi, data: tagged.calls[1].data });
+  assert.equal(order.args[6], builder);
+  assert.equal(order.args[7], 1500n);
+  assert.equal(tagged.builderAttribution.reason, "approved");
+
+  const fallback = await planner().create({
+    ...baseInput,
+    idempotencyKey: "intent-fallback",
+    builder: { requested: true, address: builder, feeBpsTimes1k: 1500n, capability: null },
+  });
+  const untagged = decodeFunctionData({ abi: binaryPoolWriteAbi, data: fallback.calls[1].data });
+  assert.equal(untagged.args[6], "0x0000000000000000000000000000000000000000");
+  assert.equal(untagged.args[7], 0n);
+});
+
+test("builder approval calldata displays and approves the exact requested fee", () => {
+  const builder = `0x${"55".repeat(20)}`;
+  const call = createBuilderApprovalCall(poolAddress, builder, 1500n);
+  const approval = decodeFunctionData({ abi: binaryPoolWriteAbi, data: call.data });
+  assert.equal(approval.functionName, "approveBuilder");
+  assert.deepEqual(approval.args, [builder, 1500n]);
+  assert.match(call.description, /1500/);
+});
+
 test("shared canonical plan-hash vector remains stable", async () => {
   const plan = await planner().create(baseInput);
-  assert.equal(plan.planHash, "0x1938b945328ea7bbe388280ddd700b01aa47bdcbb93ec4a91926cfdd89bc8358");
+  assert.equal(plan.planHash, "0x6e31622ce0a1232b9f3d11f85d632e44580be03ade2e68f4ecaab921e8e6798b");
 });

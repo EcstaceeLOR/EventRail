@@ -22,6 +22,17 @@ export const ServerEnvironmentSchema = z.object({
     z.url().default(SOMNIA_NETWORKS.shannon.dreamDexIndexerUrl),
   ),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  API_AUTH_REQUIRED: z.preprocess((value) => value === "1" || value === "true", z.boolean()).default(false),
+  API_KEY_PEPPER: z.string().min(16).default("local-only-change-me"),
+  WEBHOOK_SIGNING_KEY: z.string().min(16).default("local-webhook-key"),
+  EVENTRAIL_BUILDER_ADDRESS: z.preprocess(
+    emptyToUndefined,
+    z
+      .string()
+      .regex(/^0x[0-9a-fA-F]{40}$/)
+      .optional(),
+  ),
+  EVENTRAIL_BUILDER_FEE_BPS_TIMES_1K: z.coerce.number().int().min(0).max(10_000_000).default(0),
 });
 
 export type ServerEnvironment = z.infer<typeof ServerEnvironmentSchema>;
@@ -45,5 +56,6 @@ export function describeServerEnvironment(config: ServerEnvironment) {
     redisHost: new URL(config.REDIS_URL).host,
     somniaRpcHost: new URL(config.SOMNIA_RPC_URL).host,
     dreamDexIndexerHost: new URL(config.DREAMDEX_INDEXER_URL).host,
+    apiAuthRequired: config.API_AUTH_REQUIRED,
   } as const;
 }

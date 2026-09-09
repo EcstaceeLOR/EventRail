@@ -7,6 +7,8 @@ export { PostgresTradeExecutionRepository } from "./trade-executions.js";
 export { PostgresPortfolioRepository } from "./portfolio.js";
 export { PostgresClaimRepository } from "./claims.js";
 export { PostgresTradeActivityReader, type TradeActivityFilter } from "./trade-activity.js";
+export { PostgresIntegratorRepository } from "./integrators.js";
+export { PostgresWebhookDeliveryRepository } from "./webhooks.js";
 export {
   PostgresDreamDexMarketGenerationRepository,
   type DreamDexMarketGenerationRepository,

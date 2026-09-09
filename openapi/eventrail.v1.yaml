@@ -9,6 +9,8 @@ info:
 servers:
   - url: http://localhost:4000
     description: Local development
+security:
+  - ApiKey: []
 tags:
   - name: System
     description: Operational service endpoints.
@@ -16,120 +18,515 @@ tags:
     description: Normalized DreamDEX Event Contract market data.
   - name: Plans
     description: Non-custodial transaction planning endpoints.
+  - name: Integrators
+    description: API keys, tenant configuration, analytics, and webhooks.
 paths:
   /v1/health:
     get:
       summary: Read gateway health
       tags: [System]
       operationId: getHealth
+      security: []
       responses:
         "200":
           description: Gateway health
           content:
             application/json:
               schema: { $ref: "#/components/schemas/HealthStatus" }
-        "400": { $ref: "#/components/responses/Error" }
+        "4XX": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
   /v1/markets:
     get:
       summary: List event markets
       tags: [Markets]
       operationId: listMarkets
-      parameters:
-        - $ref: "#/components/parameters/Cursor"
-        - $ref: "#/components/parameters/Limit"
-        - name: phase
-          in: query
-          schema: { $ref: "#/components/schemas/MarketPhase" }
       responses:
         "200":
-          description: Normalized market page ordered by stable market identifier
+          description: Legacy normalized market collection
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/MarketPage" }
-        "400": { $ref: "#/components/responses/Error" }
+              schema: { type: array, items: { $ref: "#/components/schemas/EventMarket" } }
+              example: []
+        "4XX": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
-  /v1/markets/{marketId}:
+  /v1/data/series:
     get:
-      summary: Read one event market
+      summary: List rolling market series
       tags: [Markets]
-      operationId: getMarket
+      operationId: listSeries
+      parameters: [{ $ref: "#/components/parameters/Network" }]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets:
+    get:
+      summary: List live DreamDEX Event Contract markets
+      tags: [Markets]
+      operationId: listLiveMarkets
+      parameters: [{ $ref: "#/components/parameters/Network" }]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets/{marketId}:
+    get:
+      summary: Read a normalized DreamDEX market
+      tags: [Markets]
+      operationId: getNormalizedMarket
+      parameters: [{ $ref: "#/components/parameters/MarketId" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "404": { $ref: "#/components/responses/Error" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets/{marketId}/resolution:
+    get:
+      summary: Read resolution and oracle evidence
+      tags: [Markets]
+      operationId: getResolution
+      parameters: [{ $ref: "#/components/parameters/MarketId" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets/{marketId}/book:
+    get:
+      summary: Read authoritative order-book depth
+      tags: [Markets]
+      operationId: getOrderBook
+      parameters: [{ $ref: "#/components/parameters/MarketId" }]
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets/{marketId}/trades:
+    get:
+      summary: List normalized fills
+      tags: [Markets]
+      operationId: listTrades
+      parameters: [{ $ref: "#/components/parameters/MarketId" }]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/markets/{marketId}/candles:
+    get:
+      summary: List normalized candles
+      tags: [Markets]
+      operationId: listCandles
       parameters:
         - $ref: "#/components/parameters/MarketId"
+        - {
+            name: intervalSeconds,
+            in: query,
+            required: true,
+            schema: { type: integer, minimum: 1 },
+            example: 60,
+          }
       responses:
-        "200":
-          description: A normalized DreamDEX event market
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/EventMarket" }
-        "404": { $ref: "#/components/responses/Error" }
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
-  /v1/transaction-plans/trades:
-    post:
-      summary: Plan an event-contract trade
-      tags: [Plans]
-      operationId: planTrade
-      description: Produces an expiring plan. The connected wallet remains the only transaction signer.
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/TradePlanRequest" }
-      responses:
-        "201":
-          description: Deterministic transaction plan
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/TransactionPlan" }
-        "409": { $ref: "#/components/responses/Error" }
-        default: { $ref: "#/components/responses/Error" }
-  /v1/streams/markets:
+  /v1/data/markets/{marketId}/quote:
     get:
-      summary: Stream event-market updates
-      tags: [Markets]
-      operationId: streamMarkets
-      description: Server-sent event stream. Resume using Last-Event-ID.
+      summary: Read executable depth for a quantity
+      tags: [Plans]
+      operationId: getExecutableQuote
       parameters:
-        - name: marketId
-          in: query
-          required: true
-          schema: { type: string, minLength: 1 }
+        - $ref: "#/components/parameters/MarketId"
+        - {
+            name: outcome,
+            in: query,
+            required: true,
+            schema: { type: string, enum: [up, down] },
+            example: up,
+          }
+        - { name: side, in: query, required: true, schema: { type: string, enum: [buy, sell] }, example: buy }
+        - {
+            name: quantity,
+            in: query,
+            required: true,
+            schema: { type: string, pattern: "^[1-9][0-9]*$" },
+            example: "1000000",
+          }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/trading/quotes:
+    post:
+      summary: Create a bounded executable quote
+      tags: [Plans]
+      operationId: createTradeQuote
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "409": { $ref: "#/components/responses/Error" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/trading/plans:
+    post:
+      summary: Create an idempotent non-custodial trade plan
+      tags: [Plans]
+      operationId: createTradePlan
+      description: The connected wallet remains the only signer. Optional builder attribution is applied only after runtime cap and user approval checks.
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "409": { $ref: "#/components/responses/Error" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/funding/routes:
+    post:
+      summary: Plan a DreamDEX spot route into USDso
+      tags: [Plans]
+      operationId: createFundingRoute
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/trading/submissions:
+    post:
+      summary: Register a submitted trade transaction
+      tags: [Plans]
+      operationId: registerTradeSubmission
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/redemptions/plans:
+    post:
+      summary: Create a winner-only redemption plan
+      tags: [Plans]
+      operationId: createRedemptionPlan
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/builders/approval-plans:
+    post:
+      summary: Create an exact DreamDEX builder approval call
+      tags: [Plans]
+      operationId: createBuilderApprovalPlan
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/accounts/{account}/positions:
+    get:
+      summary: List reconciled portfolio positions
+      tags: [Markets]
+      operationId: listPositions
+      parameters: [{ $ref: "#/components/parameters/Account" }]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/accounts/{account}/activity:
+    get:
+      summary: List transaction activity
+      tags: [Markets]
+      operationId: listActivity
+      parameters:
+        - $ref: "#/components/parameters/Account"
+        - $ref: "#/components/parameters/Network"
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/accounts/{account}/claims:
+    get:
+      summary: List claimable winning positions
+      tags: [Markets]
+      operationId: listClaims
+      parameters: [{ $ref: "#/components/parameters/Account" }]
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/data/accounts/{account}/balances/{marketId}:
+    get:
+      summary: Read outcome-token balances
+      tags: [Markets]
+      operationId: getOutcomeBalances
+      parameters:
+        - $ref: "#/components/parameters/Account"
+        - $ref: "#/components/parameters/MarketId"
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/events:
+    get:
+      summary: Stream resumable market and account updates
+      tags: [Markets]
+      operationId: streamEvents
+      description: Server-sent event stream. Resume using Last-Event-ID.
+      parameters: [{ $ref: "#/components/parameters/Network" }]
       responses:
         "200":
-          description: Each SSE data field is a StreamEvent JSON object
+          description: Each SSE data field is a versioned event object
           content:
             text/event-stream:
               schema: { $ref: "#/components/schemas/StreamEvent" }
-        "400": { $ref: "#/components/responses/Error" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators:
+    post:
+      summary: Create an integrator and one-time initial server key
+      tags: [Integrators]
+      operationId: createIntegrator
+      security: []
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/keys:
+    parameters: [{ $ref: "#/components/parameters/IntegratorId" }]
+    get:
+      summary: List redacted API keys
+      tags: [Integrators]
+      operationId: listApiKeys
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      summary: Rotate or create an environment-scoped API key
+      tags: [Integrators]
+      operationId: createApiKey
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/keys/{keyId}:
+    delete:
+      summary: Revoke an API key immediately
+      tags: [Integrators]
+      operationId: revokeApiKey
+      parameters:
+        - $ref: "#/components/parameters/IntegratorId"
+        - $ref: "#/components/parameters/KeyId"
+      responses:
+        "204": { description: Key revoked }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/config:
+    parameters:
+      - $ref: "#/components/parameters/IntegratorId"
+      - {
+          name: environment,
+          in: query,
+          schema: { type: string, enum: [test, live], default: test },
+          example: test,
+        }
+    get:
+      summary: Read embed configuration
+      tags: [Integrators]
+      operationId: getEmbedConfig
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+    put:
+      summary: Validate and save embed configuration
+      tags: [Integrators]
+      operationId: saveEmbedConfig
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/analytics/events:
+    post:
+      summary: Ingest deduplicated funnel and lifecycle events
+      tags: [Integrators]
+      operationId: ingestAnalyticsEvents
+      parameters: [{ $ref: "#/components/parameters/IntegratorId" }]
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/analytics/summary:
+    get:
+      summary: Read reconciled integration funnel metrics
+      tags: [Integrators]
+      operationId: getAnalyticsSummary
+      parameters:
+        - $ref: "#/components/parameters/IntegratorId"
+        - {
+            name: environment,
+            in: query,
+            required: true,
+            schema: { type: string, enum: [test, live] },
+            example: test,
+          }
+        - {
+            name: from,
+            in: query,
+            required: true,
+            schema: { type: string, format: date-time },
+            example: "2026-01-01T00:00:00Z",
+          }
+        - {
+            name: to,
+            in: query,
+            required: true,
+            schema: { type: string, format: date-time },
+            example: "2026-02-01T00:00:00Z",
+          }
+        - { name: embedId, in: query, schema: { type: string }, example: wallet }
+        - {
+            name: marketId,
+            in: query,
+            schema: { type: string },
+            example: "0xabababababababababababababababababababababababababababababababab",
+          }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/analytics/retention:
+    put:
+      summary: Configure minimal analytics retention from 1 to 365 days
+      tags: [Integrators]
+      operationId: setAnalyticsRetention
+      parameters: [{ $ref: "#/components/parameters/IntegratorId" }]
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/webhooks:
+    parameters: [{ $ref: "#/components/parameters/IntegratorId" }]
+    get:
+      summary: List webhook endpoints and delivery health
+      tags: [Integrators]
+      operationId: listWebhooks
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+    post:
+      summary: Register an HTTPS webhook and reveal its secret once
+      tags: [Integrators]
+      operationId: createWebhook
+      requestBody: { $ref: "#/components/requestBodies/JsonRequest" }
+      responses:
+        "201": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/webhooks/{endpointId}/rotate:
+    post:
+      summary: Rotate a webhook secret with a 24-hour overlap
+      tags: [Integrators]
+      operationId: rotateWebhookSecret
+      parameters:
+        - $ref: "#/components/parameters/IntegratorId"
+        - { name: endpointId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/webhook-deliveries/{deliveryId}/replay:
+    post:
+      summary: Manually replay a dead-letter delivery
+      tags: [Integrators]
+      operationId: replayWebhookDelivery
+      parameters:
+        - $ref: "#/components/parameters/IntegratorId"
+        - { name: deliveryId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "202": { $ref: "#/components/responses/Object" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
+  /v1/integrators/{integratorId}/webhook-deliveries:
+    get:
+      summary: Inspect recent webhook attempts and dead letters
+      tags: [Integrators]
+      operationId: listWebhookDeliveries
+      parameters:
+        - $ref: "#/components/parameters/IntegratorId"
+        - {
+            name: status,
+            in: query,
+            schema: { type: string, enum: [pending, retry, delivered, dead_letter] },
+            example: dead_letter,
+          }
+      responses:
+        "200": { $ref: "#/components/responses/Collection" }
+        "4XX": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
 components:
+  securitySchemes:
+    ApiKey:
+      type: http
+      scheme: bearer
+      bearerFormat: EventRail API key
+  requestBodies:
+    JsonRequest:
+      required: true
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+          example: { example: "See the endpoint schema in the generated TypeScript client." }
   parameters:
-    Cursor:
-      name: cursor
+    Network:
+      name: network
       in: query
-      schema: { type: string, minLength: 1 }
-    Limit:
-      name: limit
-      in: query
-      schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+      schema: { $ref: "#/components/schemas/Network" }
+      example: shannon
+    Account:
+      name: account
+      in: path
+      required: true
+      schema: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
+      example: "0x1111111111111111111111111111111111111111"
+    IntegratorId:
+      name: integratorId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: 3e2b9274-6074-42dc-8a2d-12290a268fcb
+    KeyId:
+      name: keyId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+      example: d7d13218-fecd-47f6-898b-c15cf4550055
     MarketId:
       name: marketId
       in: path
       required: true
       schema: { type: string, minLength: 1 }
-    IdempotencyKey:
-      name: Idempotency-Key
-      in: header
-      required: true
-      schema: { type: string, minLength: 16, maxLength: 128 }
   responses:
+    Object:
+      description: Successful object response
+      content:
+        application/json:
+          schema: { type: object, additionalProperties: true }
+          example: { status: ok }
+    Collection:
+      description: Successful collection response; list endpoints expose stable ordering and explicit freshness fields.
+      content:
+        application/json:
+          schema: { type: array, items: { type: object, additionalProperties: true } }
+          example: []
     Error:
       description: Stable machine-readable error envelope
       content:
         application/json:
           schema: { $ref: "#/components/schemas/ApiErrorEnvelope" }
+          example:
+            error: { code: BAD_REQUEST, message: Invalid request, requestId: req_example, recoverable: false }
   schemas:
     Network:
       type: string
@@ -163,80 +560,6 @@ components:
         closesAt: { type: string, format: date-time }
         network: { $ref: "#/components/schemas/Network" }
         freshness: { $ref: "#/components/schemas/Freshness" }
-    PageInfo:
-      type: object
-      additionalProperties: false
-      required: [nextCursor, hasNextPage]
-      properties:
-        nextCursor: { type: [string, "null"] }
-        hasNextPage: { type: boolean }
-    MarketPage:
-      type: object
-      additionalProperties: false
-      required: [data, page]
-      properties:
-        data:
-          type: array
-          items: { $ref: "#/components/schemas/EventMarket" }
-        page: { $ref: "#/components/schemas/PageInfo" }
-    TradePlanRequest:
-      type: object
-      additionalProperties: false
-      required: [marketId, outcome, amountUsdso, account]
-      properties:
-        marketId: { type: string, minLength: 1 }
-        outcome: { type: string, enum: [yes, no] }
-        amountUsdso: { type: string, pattern: '^\d+(?:\.\d+)?$' }
-        account: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
-        maxSlippageBps: { type: integer, minimum: 0, maximum: 10000, default: 100 }
-    TransactionCall:
-      type: object
-      additionalProperties: false
-      required: [to, data, value]
-      properties:
-        to: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
-        data: { type: string, pattern: "^0x(?:[0-9a-fA-F]{2})*$" }
-        value: { type: string, pattern: '^\d+(?:\.\d+)?$' }
-    TransactionPlan:
-      type: object
-      additionalProperties: false
-      required:
-        [
-          version,
-          planId,
-          planHash,
-          network,
-          chainId,
-          account,
-          calls,
-          summary,
-          sourceBlock,
-          observedAt,
-          expiresAt,
-          assumptions,
-          expectedEffects,
-        ]
-      properties:
-        version: { type: string, const: "1" }
-        planId: { type: string, format: uuid }
-        planHash: { type: string, pattern: "^0x[0-9a-fA-F]{64}$" }
-        network: { $ref: "#/components/schemas/Network" }
-        chainId: { type: integer, minimum: 1 }
-        account: { type: string, pattern: "^0x[0-9a-fA-F]{40}$" }
-        calls:
-          type: array
-          minItems: 1
-          items: { $ref: "#/components/schemas/TransactionCall" }
-        summary: { type: string, minLength: 1 }
-        sourceBlock: { type: integer, minimum: 0 }
-        observedAt: { type: string, format: date-time }
-        expiresAt: { type: string, format: date-time }
-        assumptions:
-          type: array
-          items: { type: string, minLength: 1 }
-        expectedEffects:
-          type: array
-          items: { type: string, minLength: 1 }
     StreamEvent:
       type: object
       description: Discriminated by type; payload shape follows that event type.

@@ -14,10 +14,11 @@ import {
   type SpotMarket,
   type SpotOrderBook,
   erc20WriteAbi,
+  binaryPoolWriteAbi,
   spotPoolWriteAbi,
 } from "@somnia-chain/markets-sdk";
 import { calculatePositionValuation } from "@eventrail/core";
-import { encodeFunctionData, type Address, type Hex } from "viem";
+import { createPublicClient, encodeFunctionData, http, type Address, type Hex } from "viem";
 import {
   DataFreshnessSchema,
   BookParametersSchema,
@@ -608,6 +609,33 @@ export function createDreamDexAdapter(options: DreamDexAdapterOptions = {}): Pro
 
 export function createShannonDreamDexAdapter(signal?: AbortSignal): ProductionDreamDexAdapter {
   return new ProductionDreamDexAdapter({ network: "shannon", ...(signal ? { signal } : {}) });
+}
+
+export function createBuilderCapabilityReader(network: SomniaNetwork = "shannon") {
+  const registry = getDreamDexRegistry(network);
+  const client = createPublicClient({ chain: registry.chain, transport: http(registry.rpcUrls[0]) });
+  return async (input: { account: Address; pool: Address; builder: Address }) => {
+    try {
+      const [poolCapBpsTimes1k, userApprovalBpsTimes1k] = await Promise.all([
+        client.readContract({
+          address: input.pool,
+          abi: binaryPoolWriteAbi,
+          functionName: "getMaxBuilderFeeBpsTimes1k",
+        }),
+        client.readContract({
+          address: input.pool,
+          abi: binaryPoolWriteAbi,
+          functionName: "getBuilderApproval",
+          args: [input.account, input.builder],
+        }),
+      ]);
+      return { poolCapBpsTimes1k, userApprovalBpsTimes1k };
+    } catch {
+      // Attribution is optional. Unknown or legacy pools always fall back to an
+      // untagged order so this rail can never make an otherwise valid order revert.
+      return null;
+    }
+  };
 }
 
 function normalizeBook(

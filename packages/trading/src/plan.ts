@@ -6,9 +6,9 @@ import {
   erc6909Abi,
 } from "@somnia-chain/markets-sdk";
 import { TradePlanSchema, type PlanPolicy, type TradePlan, type TradeQuote } from "@eventrail/types";
+import { resolveBuilderAttribution, type BuilderCapability } from "@eventrail/platform";
 import { encodeFunctionData, keccak256, stringToHex, type Address, type Hex } from "viem";
 
-const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000" as Address;
 const DEFAULT_ORDER_GAS = 10_000_000n;
 const DEFAULT_APPROVAL_GAS = 1_000_000n;
 
@@ -22,6 +22,12 @@ export interface CreateTradePlanInput {
   downTokenId: string;
   quote: TradeQuote;
   policy: PlanPolicy;
+  builder?: {
+    requested: boolean;
+    address?: Address;
+    feeBpsTimes1k?: bigint;
+    capability?: BuilderCapability | null;
+  };
 }
 
 export interface StoredTradePlan {
@@ -110,7 +116,13 @@ export class TradePlanner {
       input.quote.outcome === "up" ? BigInt(input.quote.limitPrice) : one - BigInt(input.quote.limitPrice);
     const side = sdkSide(input.quote.outcome, input.quote.side);
     const orderExpiryNs = BigInt(Date.parse(input.quote.expiresAt)) * 1_000_000n;
-    const calls = buildCalls(input, side, yesTermsPrice, orderExpiryNs);
+    const attribution = resolveBuilderAttribution({
+      requested: input.builder?.requested ?? false,
+      ...(input.builder?.address ? { builder: input.builder.address } : {}),
+      ...(input.builder?.feeBpsTimes1k === undefined ? {} : { feeBpsTimes1k: input.builder.feeBpsTimes1k }),
+      ...(input.builder?.capability === undefined ? {} : { capability: input.builder.capability }),
+    });
+    const calls = buildCalls(input, side, yesTermsPrice, orderExpiryNs, attribution);
     const unsigned = {
       version: "1" as const,
       network: input.quote.network,
@@ -128,6 +140,7 @@ export class TradePlanner {
       orderExpiryNs: orderExpiryNs.toString(),
       quote: input.quote,
       policy: input.policy,
+      builderAttribution: { ...attribution, feeBpsTimes1k: attribution.feeBpsTimes1k.toString() },
       calls,
       summary: `${input.quote.side === "buy" ? "Buy" : "Sell"} ${input.quote.outcome.toUpperCase()} through DreamDEX IOC`,
       createdAt: createdAt.toISOString(),
@@ -163,6 +176,7 @@ export function computeTradePlanHash(plan: HashableTradePlan): Hex {
     orderExpiryNs: plan.orderExpiryNs,
     quote: plan.quote,
     policy: plan.policy,
+    builderAttribution: plan.builderAttribution,
     calls: plan.calls,
     summary: plan.summary,
     createdAt: plan.createdAt,
@@ -170,11 +184,29 @@ export function computeTradePlanHash(plan: HashableTradePlan): Hex {
   });
 }
 
+export function createBuilderApprovalCall(pool: Address, builder: Address, maxFeeBpsTimes1k: bigint) {
+  if (maxFeeBpsTimes1k <= 0n) throw new RangeError("Builder approval must be greater than zero.");
+  return {
+    kind: "builder_approval" as const,
+    to: pool,
+    data: encodeFunctionData({
+      abi: binaryPoolWriteAbi,
+      functionName: "approveBuilder",
+      args: [builder, maxFeeBpsTimes1k],
+    }),
+    value: "0",
+    gas: DEFAULT_APPROVAL_GAS.toString(),
+    description: `Approve this builder for at most ${maxFeeBpsTimes1k} bps-times-1k per order`,
+    requiresConfirmation: true,
+  };
+}
+
 function buildCalls(
   input: CreateTradePlanInput,
   side: keyof typeof ORDER_KIND,
   yesTermsPrice: bigint,
   orderExpiryNs: bigint,
+  attribution: ReturnType<typeof resolveBuilderAttribution>,
 ) {
   const calls = [];
   if (input.quote.side === "buy") {
@@ -219,8 +251,8 @@ function buildCalls(
         orderExpiryNs,
         ORDER_TYPE.MARKET,
         0,
-        ZERO_ADDRESS,
-        0n,
+        attribution.builder,
+        attribution.feeBpsTimes1k,
         0n,
       ],
     }),
@@ -247,6 +279,19 @@ function planRequestPayload(input: CreateTradePlanInput) {
     downTokenId: input.downTokenId,
     quote: input.quote,
     policy: input.policy,
+    builder: input.builder
+      ? {
+          requested: input.builder.requested,
+          address: input.builder.address?.toLowerCase(),
+          feeBpsTimes1k: input.builder.feeBpsTimes1k?.toString(),
+          capability: input.builder.capability
+            ? {
+                poolCapBpsTimes1k: input.builder.capability.poolCapBpsTimes1k.toString(),
+                userApprovalBpsTimes1k: input.builder.capability.userApprovalBpsTimes1k.toString(),
+              }
+            : null,
+        }
+      : null,
   };
 }
 
