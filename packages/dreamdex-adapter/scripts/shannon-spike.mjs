@@ -9,8 +9,9 @@ const WS_URL = "wss://api.infra.testnet.somnia.network/ws";
 const privateKey = process.env.DREAMDEX_PRIVATE_KEY;
 const liveWrite = process.env.DREAMDEX_LIVE_WRITE === "1";
 const redeem = process.env.DREAMDEX_REDEEM === "1";
+const mintRedemptionFixture = process.env.DREAMDEX_MINT_REDEMPTION_FIXTURE === "1";
 
-if ((liveWrite || redeem) && !/^0x[0-9a-fA-F]{64}$/.test(privateKey ?? "")) {
+if ((liveWrite || redeem || mintRedemptionFixture) && !/^0x[0-9a-fA-F]{64}$/.test(privateKey ?? "")) {
   throw new Error("Set DREAMDEX_PRIVATE_KEY to a funded Shannon-only key before enabling writes");
 }
 const signerAccount = privateKey ? privateKeyToAccount(privateKey) : undefined;
@@ -38,12 +39,21 @@ const candidates = await Promise.all(
     }
   }),
 );
+const fixtureCandidate = candidates
+  .filter(
+    (candidate) =>
+      candidate?.onchain.status === 1 &&
+      candidate.onchain.expiry > BigInt(Math.floor(Date.now() / 1000) + 20),
+  )
+  .sort((left, right) => Number(left.onchain.expiry - right.onchain.expiry))[0];
 const selected =
+  (mintRedemptionFixture ? fixtureCandidate : null) ??
   candidates.find(
     (candidate) =>
       candidate?.onchain.status === 1 &&
       (candidate.book.yesAsks.length > 0 || candidate.book.noAsks.length > 0),
-  ) ?? candidates.find((candidate) => candidate?.onchain.status === 1);
+  ) ??
+  candidates.find((candidate) => candidate?.onchain.status === 1);
 if (!selected) throw new Error("No active Shannon binary market was found");
 
 const block = await publicClient.getBlockNumber();
@@ -66,6 +76,37 @@ const result = {
   trade: { status: "not-requested" },
   redemption: { status: "not-requested" },
 };
+
+if (mintRedemptionFixture) {
+  if (!signerAccount) throw new Error("A Shannon signer is required for the redemption fixture");
+  const amount = 1_000n;
+  const collateralBalance = await exchange.client.getErc20Balance(
+    selected.onchain.collateral,
+    signerAccount.address,
+  );
+  let faucetTransactionHash;
+  if (collateralBalance < amount) {
+    const faucet = await exchange.trader.faucet({
+      amount: 100n * 10n ** BigInt(selected.market.quoteDecimals),
+      testUsdc: selected.onchain.collateral,
+    });
+    faucetTransactionHash = faucet.hash;
+  }
+  const fixture = await exchange.trader.mintSet({
+    pool: selected.market.poolAddress,
+    amount,
+    autoApprove: true,
+  });
+  result.redemptionFixture = {
+    status: "complete-set-minted",
+    marketId: selected.market.id,
+    amount: amount.toString(),
+    expiry: selected.market.expiry,
+    ...(faucetTransactionHash ? { faucetTransactionHash } : {}),
+    transactionHash: fixture.hash,
+    receiptStatus: fixture.receipt.status,
+  };
+}
 
 if (liveWrite) {
   if (!signerAccount) throw new Error("A Shannon signer is required for the live write");
