@@ -12,8 +12,15 @@ import {
   type NormalizedMarket,
   type SomniaNetwork,
   type TradeActivity,
+  type PortfolioPosition,
+  RedemptionPlanSchema,
 } from "@eventrail/types";
-import { PlanConflictError, type CreateTradePlanInput } from "@eventrail/trading";
+import {
+  createRedemptionPlan,
+  PlanConflictError,
+  RedemptionPlanError,
+  type CreateTradePlanInput,
+} from "@eventrail/trading";
 
 export interface PublicEventStream {
   subscribe(options: {
@@ -44,6 +51,17 @@ export interface GatewayOptions {
       account: string;
       transactionHash: string;
     }): Promise<void>;
+  };
+  portfolioStore?: {
+    reconcile(
+      network: SomniaNetwork,
+      account: string,
+      snapshot: Awaited<ReturnType<DreamDexReadAdapter["getPortfolioSnapshot"]>>,
+    ): Promise<readonly PortfolioPosition[]>;
+  };
+  redemption?: {
+    chainId: number;
+    moduleAddress: `0x${string}`;
   };
 }
 
@@ -106,6 +124,10 @@ const TradeSubmissionSchema = z.object({
   account: AccountParamsSchema.shape.account,
   transactionHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/),
 });
+const RedemptionPlanRequestSchema = z.object({
+  account: AccountParamsSchema.shape.account,
+  marketId: MarketParamsSchema.shape.marketId,
+});
 
 export function createGateway(options: GatewayOptions = {}) {
   const app = Fastify({ logger: { redact: ["req.headers.authorization", "req.headers.cookie"] } });
@@ -141,6 +163,13 @@ export function createGateway(options: GatewayOptions = {}) {
     const { marketId } = MarketParamsSchema.parse(request.params);
     const market = await options.dataReader.getMarket(marketId, request.signal);
     return market ?? reply.code(404).send({ error: "Market not found" });
+  });
+
+  app.get("/v1/data/markets/:marketId/resolution", async (request, reply) => {
+    if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
+    const { marketId } = MarketParamsSchema.parse(request.params);
+    const resolution = await options.dataReader.getResolution(marketId, request.signal);
+    return resolution ?? reply.code(404).send({ error: "Market not found" });
   });
 
   app.get("/v1/data/markets/:marketId/book", async (request, reply) => {
@@ -300,7 +329,10 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/accounts/:account/positions", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account } = AccountParamsSchema.parse(request.params);
-    return options.dataReader.getPositions(account, request.signal);
+    const snapshot = await options.dataReader.getPortfolioSnapshot(account, request.signal);
+    return options.portfolioStore
+      ? options.portfolioStore.reconcile("shannon", account, snapshot)
+      : snapshot.positions;
   });
 
   app.get("/v1/data/accounts/:account/activity", async (request, reply) => {
@@ -320,6 +352,32 @@ export function createGateway(options: GatewayOptions = {}) {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account } = AccountParamsSchema.parse(request.params);
     return options.dataReader.getClaims(account, request.signal);
+  });
+
+  app.post("/v1/redemptions/plans", async (request, reply) => {
+    if (!options.dataReader || !options.redemption) {
+      return reply.code(503).send({ error: "Redemption planning is unavailable" });
+    }
+    const input = RedemptionPlanRequestSchema.parse(request.body);
+    const snapshot = await options.dataReader.getPortfolioSnapshot(input.account, request.signal);
+    const positions = snapshot.positions.filter(
+      (position) => position.marketId.toLowerCase() === input.marketId.toLowerCase(),
+    );
+    try {
+      return RedemptionPlanSchema.parse(
+        createRedemptionPlan({
+          account: input.account as `0x${string}`,
+          chainId: options.redemption.chainId,
+          moduleAddress: options.redemption.moduleAddress,
+          positions,
+        }),
+      );
+    } catch (error) {
+      if (error instanceof RedemptionPlanError) {
+        return reply.code(409).send({ error: { code: error.code, message: error.message } });
+      }
+      throw error;
+    }
   });
 
   app.get("/v1/data/accounts/:account/balances/:marketId", async (request, reply) => {

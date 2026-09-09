@@ -27,6 +27,7 @@ export {
   useMarkets,
   useOrderBook,
   usePositions,
+  useResolution,
   useSeries,
   useTrades,
 } from "./live-data.js";

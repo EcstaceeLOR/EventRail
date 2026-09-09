@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { WalletEmptyState } from "../../components/wallet-empty-state";
+import { ClaimsCenter } from "../../components/claims-center";
 
 export const metadata: Metadata = { title: "Claims" };
 
@@ -14,7 +14,7 @@ export default function ClaimsPage() {
         </div>
         <span className="safe-pill">Oracle-aware</span>
       </div>
-      <WalletEmptyState kind="claims" />
+      <ClaimsCenter />
     </section>
   );
 }

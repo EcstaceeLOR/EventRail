@@ -173,14 +173,30 @@ function fixture() {
       {
         market: { id: marketId, poolAddress: address },
         outcomes: {
-          yes: { balance: 10n, avgCost: 500000n, realizedPnl: 2n, unrealizedPnl: 1n },
-          no: { balance: 0n, avgCost: 0n, realizedPnl: 0n, unrealizedPnl: null },
+          yes: {
+            balance: 10n,
+            costBasis: 5n,
+            avgCost: 500000n,
+            markPrice: 600000n,
+            realizedPnl: 2n,
+            unrealizedPnl: 1n,
+          },
+          no: {
+            balance: 0n,
+            costBasis: 0n,
+            avgCost: 0n,
+            markPrice: 400000n,
+            realizedPnl: 0n,
+            unrealizedPnl: null,
+          },
         },
       },
     ],
     getClaimable: async () => [
       { marketId, pool: address, outcomeIdx: 0, amount: 10n, estPayout: 9n, status: "Resolved" },
     ],
+    getOutcomeBalance: async ({ id }) => (id === 1n ? 8n : 0n),
+    getRouterActions: async () => [],
     getOutcomeBalances: async () => ({ yes: "10", no: "0" }),
   };
   const adapter = new ProductionDreamDexAdapter({
@@ -238,6 +254,70 @@ test("settlement, PnL, claims, and outcome balances use normalized exact values"
   assert.equal(positions[0].averageEntryPrice, "500000");
   assert.equal(claims[0].estimatedPayout, "9");
   assert.equal(balances.up, "10");
+});
+
+test("portfolio reconciliation trusts ERC-6909 balances and remains repeatable for historical markets", async () => {
+  const { adapter, sdk } = fixture();
+  sdk.listLiveBinaryMarkets = async () => [];
+
+  const first = await adapter.getPortfolioSnapshot(account);
+  const repeated = await adapter.getPortfolioSnapshot(account);
+
+  assert.deepEqual(repeated, first);
+  assert.equal(first.positions.length, 1);
+  assert.deepEqual(
+    {
+      marketId: first.positions[0].marketId,
+      tokenId: first.positions[0].tokenId,
+      balance: first.positions[0].balance,
+      indexedBalance: first.positions[0].indexedBalance,
+      costBasis: first.positions[0].costBasis,
+      claimStatus: first.positions[0].claimStatus,
+    },
+    {
+      marketId,
+      tokenId: "1",
+      balance: "8",
+      indexedBalance: "10",
+      costBasis: "4",
+      claimStatus: "pending",
+    },
+  );
+});
+
+test("portfolio retains a claimed resolved winner from DreamDEX redemption history", async () => {
+  const { adapter, sdk } = fixture();
+  sdk.getOpenPositionsWithPnL = async () => [];
+  sdk.getOutcomeBalance = async () => 0n;
+  sdk.getRouterActions = async () => [
+    {
+      id: "100_1",
+      kind: "Redeem",
+      account,
+      market: marketId,
+      amount: "10",
+      payout: "9",
+      routedVia: null,
+      timestamp: "1900000400",
+      txHash,
+    },
+  ];
+  sdk.getBinaryMarket = async () =>
+    market({
+      status: "Resolved",
+      winningOutcome: 0,
+      finalized: true,
+      payoutNumerators: ["10000000", "0"],
+      payoutDenominator: "10000000",
+    });
+  sdk.getMarketOnchain = async () =>
+    onchain({ status: 4, finalized: true, winningOutcome: 0, isResolved: true });
+
+  const snapshot = await adapter.getPortfolioSnapshot(account);
+  assert.equal(snapshot.positions.length, 1);
+  assert.equal(snapshot.positions[0].claimStatus, "claimed");
+  assert.equal(snapshot.positions[0].redeemedQuantity, "10");
+  assert.equal(snapshot.positions[0].redemptionPayout, "9");
 });
 
 test("invalid upstream rows become typed adapter errors", async () => {

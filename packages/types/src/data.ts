@@ -33,6 +33,21 @@ export const MarketResolutionSchema = z.object({
   payoutDenominator: UnsignedIntegerStringSchema.nullable(),
 });
 
+export const OracleEvidenceSchema = z.object({
+  marketId: Bytes32Schema,
+  question: z.string().min(1),
+  closingQuestionId: UnsignedIntegerStringSchema.nullable(),
+  openingQuestionId: UnsignedIntegerStringSchema.nullable(),
+  openingValue: DecimalStringSchema.nullable(),
+  closingValue: DecimalStringSchema.nullable(),
+  resolutionTransactionHash: TransactionHashSchema.nullable(),
+  closingOracleTransactionHash: TransactionHashSchema.nullable(),
+  openingOracleTransactionHash: TransactionHashSchema.nullable(),
+  graphUrl: z.url().nullable(),
+  explorerUrl: z.url().nullable(),
+  state: z.enum(["available", "pending", "unavailable"]),
+});
+
 export const NormalizedMarketSchema = z.object({
   network: SomniaNetworkSchema,
   venue: z.literal("dreamdex"),
@@ -155,6 +170,7 @@ export const ResolutionSnapshotSchema = z.object({
   marketId: Bytes32Schema,
   resolution: MarketResolutionSchema,
   eventCount: UnsignedIntegerStringSchema,
+  evidence: OracleEvidenceSchema.nullable().default(null),
   freshness: DataFreshnessSchema,
 });
 
@@ -213,6 +229,8 @@ export const DataStreamEventSchema = z.object({
 });
 
 export type DataFreshness = z.infer<typeof DataFreshnessSchema>;
+export type MarketResolution = z.infer<typeof MarketResolutionSchema>;
+export type OracleEvidence = z.infer<typeof OracleEvidenceSchema>;
 export type SomniaNetwork = z.infer<typeof SomniaNetworkSchema>;
 export type NormalizedMarket = z.infer<typeof NormalizedMarketSchema>;
 export type NormalizedOrderBook = z.infer<typeof NormalizedOrderBookSchema>;
@@ -220,6 +238,76 @@ export type BookParameters = z.infer<typeof BookParametersSchema>;
 export type NormalizedFill = z.infer<typeof NormalizedFillSchema>;
 export type NormalizedCandle = z.infer<typeof NormalizedCandleSchema>;
 export type NormalizedPosition = z.infer<typeof NormalizedPositionSchema>;
+
+export const PortfolioPositionSchema = z.object({
+  account: AddressSchema,
+  network: SomniaNetworkSchema,
+  marketId: Bytes32Schema,
+  marketAddress: AddressSchema,
+  poolAddress: AddressSchema,
+  outcomeTokenAddress: AddressSchema,
+  tokenId: UnsignedIntegerStringSchema,
+  outcome: MarketOutcomeSchema,
+  question: z.string().min(1),
+  asset: z.string().min(1),
+  cadence: MarketCadenceSchema,
+  status: MarketStatusSchema,
+  expiresAt: IsoDateTimeSchema,
+  collateralDecimals: z.number().int().min(0).max(36),
+  balance: UnsignedIntegerStringSchema,
+  indexedBalance: UnsignedIntegerStringSchema,
+  costBasis: UnsignedIntegerStringSchema,
+  averageEntryPrice: UnsignedIntegerStringSchema.nullable(),
+  markPrice: UnsignedIntegerStringSchema.nullable(),
+  markValue: UnsignedIntegerStringSchema.nullable(),
+  realizedPnl: SignedIntegerStringSchema,
+  unrealizedPnl: SignedIntegerStringSchema.nullable(),
+  settlementPayout: UnsignedIntegerStringSchema,
+  redeemedQuantity: UnsignedIntegerStringSchema,
+  redemptionPayout: UnsignedIntegerStringSchema,
+  claimStatus: z.enum(["pending", "claimable", "claimed", "no_value"]),
+  valuationAssumptions: z.array(z.string().min(1)),
+  resolution: MarketResolutionSchema,
+  oracleEvidence: OracleEvidenceSchema.nullable().default(null),
+  freshness: DataFreshnessSchema,
+});
+
+export const PortfolioSummarySchema = z.object({
+  account: AddressSchema,
+  collateralDecimals: z.number().int().min(0).max(36).nullable(),
+  totalCostBasis: UnsignedIntegerStringSchema,
+  totalMarkValue: UnsignedIntegerStringSchema.nullable(),
+  totalRealizedPnl: SignedIntegerStringSchema,
+  totalUnrealizedPnl: SignedIntegerStringSchema.nullable(),
+  claimablePayout: UnsignedIntegerStringSchema,
+  openPositionCount: UnsignedIntegerStringSchema,
+  lockedPositionCount: UnsignedIntegerStringSchema,
+});
+
+export const PortfolioSnapshotSchema = z.object({
+  account: AddressSchema,
+  positions: z.array(PortfolioPositionSchema),
+  freshness: DataFreshnessSchema,
+});
+
+export const ClaimCandidateSchema = z.object({
+  network: SomniaNetworkSchema,
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  outcome: MarketOutcomeSchema,
+  tokenId: UnsignedIntegerStringSchema,
+  amount: UnsignedIntegerStringSchema,
+  estimatedPayout: UnsignedIntegerStringSchema,
+  status: z.enum(["claimable", "no_value"]),
+  expiresAt: IsoDateTimeSchema,
+  resolution: MarketResolutionSchema,
+  freshness: DataFreshnessSchema,
+});
+
+export type PortfolioPosition = z.infer<typeof PortfolioPositionSchema>;
+export type PortfolioSummary = z.infer<typeof PortfolioSummarySchema>;
+export type PortfolioSnapshot = z.infer<typeof PortfolioSnapshotSchema>;
+export type ClaimCandidate = z.infer<typeof ClaimCandidateSchema>;
 export type NormalizedClaim = z.infer<typeof NormalizedClaimSchema>;
 export type OutcomeBalances = z.infer<typeof OutcomeBalancesSchema>;
 export type ResolutionSnapshot = z.infer<typeof ResolutionSnapshotSchema>;

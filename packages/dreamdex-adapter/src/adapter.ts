@@ -16,6 +16,7 @@ import {
   erc20WriteAbi,
   spotPoolWriteAbi,
 } from "@somnia-chain/markets-sdk";
+import { calculatePositionValuation } from "@eventrail/core";
 import { encodeFunctionData, type Address, type Hex } from "viem";
 import {
   DataFreshnessSchema,
@@ -41,6 +42,10 @@ import {
   type SomniaNetwork,
   FundingRouteSchema,
   type FundingRoute,
+  PortfolioPositionSchema,
+  type PortfolioPosition,
+  PortfolioSnapshotSchema,
+  type PortfolioSnapshot,
 } from "@eventrail/types";
 import {
   getDreamDexRegistry,
@@ -69,6 +74,8 @@ export type DreamDexSdkReadClient = Pick<
   | "getOpenPositionsWithPnL"
   | "getClaimable"
   | "getOutcomeBalances"
+  | "getOutcomeBalance"
+  | "getRouterActions"
 >;
 
 export type DreamDexSpotReadClient = Pick<SomniaMarketsClient, "listSpotMarkets" | "getSpotOrderBook">;
@@ -91,6 +98,7 @@ export interface DreamDexReadAdapter {
   ): Promise<readonly NormalizedCandle[]>;
   getResolution(marketId: string, signal?: AbortSignal): Promise<ResolutionSnapshot | null>;
   getPositions(account: string, signal?: AbortSignal): Promise<readonly NormalizedPosition[]>;
+  getPortfolioSnapshot(account: string, signal?: AbortSignal): Promise<PortfolioSnapshot>;
   getClaims(account: string, signal?: AbortSignal): Promise<readonly NormalizedClaim[]>;
   getOutcomeBalances(
     account: string,
@@ -321,6 +329,7 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
       ]);
       const key = id.toLowerCase();
       return normalizeResolutionSnapshot(
+        this.#network,
         context.market,
         context.binding,
         indexed,
@@ -339,6 +348,130 @@ export class ProductionDreamDexAdapter implements DreamDexReadAdapter {
       ]);
       const freshness = this.#freshness(sourceBlock);
       return rows.flatMap((row) => normalizePositionRows(account, row, freshness));
+    });
+  }
+
+  async getPortfolioSnapshot(account: string, signal?: AbortSignal): Promise<PortfolioSnapshot> {
+    return this.#execute("getPortfolioSnapshot", signal, async () => {
+      const [rows, sourceBlock, routerActions] = await Promise.all([
+        this.#sdk.getOpenPositionsWithPnL(account),
+        this.#chain.getBlockNumber(),
+        this.#sdk.getRouterActions(account, { kind: "Redeem", limit: 1000 }),
+      ]);
+      const freshness = this.#freshness(sourceBlock);
+      const result: PortfolioPosition[] = [];
+      const rowsByMarket = new Map(rows.map((row) => [row.market.id.toLowerCase(), row]));
+      const redemptions = new Map<string, { amount: bigint; payout: bigint }>();
+      for (const action of routerActions) {
+        if (action.kind !== "Redeem" || !action.market) continue;
+        const key = action.market.toLowerCase();
+        const current = redemptions.get(key) ?? { amount: 0n, payout: 0n };
+        current.amount += BigInt(action.amount);
+        current.payout += BigInt(action.payout ?? "0");
+        redemptions.set(key, current);
+      }
+      const marketIds = new Set([...rowsByMarket.keys(), ...redemptions.keys()]);
+      for (const marketKey of marketIds) {
+        const row = rowsByMarket.get(marketKey);
+        const [context, indexed] = await Promise.all([
+          this.#marketContext(marketKey),
+          this.#sdk.getMarketResolution(marketKey),
+        ]);
+        if (!context) continue;
+        const binding = context.binding;
+        const indexedResolution = marketResolution(
+          context.market,
+          binding,
+          indexed.openingAnswer?.numericValue ?? null,
+          indexed.closingAnswer?.numericValue ?? null,
+        );
+        const evidence = oracleEvidence(this.#network, context.market, indexed);
+        const emptyLeg = {
+          balance: 0n,
+          costBasis: 0n,
+          avgCost: 0n,
+          markPrice: null,
+          realizedPnl: 0n,
+        };
+        const legs = [
+          { outcome: "up" as const, id: binding.upTokenId, value: row?.outcomes.yes ?? emptyLeg },
+          { outcome: "down" as const, id: binding.downTokenId, value: row?.outcomes.no ?? emptyLeg },
+        ];
+        const intervalSeconds =
+          context.market.intervalSec ??
+          (BigInt(context.market.expiry) - BigInt(context.market.tradingStart)).toString();
+        for (const leg of legs) {
+          const redeemed =
+            indexedResolution.state === "resolved" && indexedResolution.winningOutcome === leg.outcome
+              ? (redemptions.get(marketKey) ?? { amount: 0n, payout: 0n })
+              : { amount: 0n, payout: 0n };
+          const chainBalance = await this.#sdk.getOutcomeBalance({
+            outcomeToken: binding.outcomeTokenAddress,
+            account: account as Address,
+            id: leg.id,
+          });
+          const valuation = calculatePositionValuation({
+            balance: chainBalance,
+            indexedBalance: leg.value.balance,
+            indexedCostBasis: leg.value.costBasis,
+            indexedAverageEntryPrice: leg.value.balance > 0n ? leg.value.avgCost : null,
+            indexedMarkPrice: leg.value.markPrice,
+            indexedRealizedPnl: leg.value.realizedPnl,
+            resolution: indexedResolution,
+            outcome: leg.outcome,
+            collateralDecimals: context.market.quoteDecimals,
+            redeemedQuantity: redeemed.amount,
+            redemptionPayout: redeemed.payout,
+          });
+          if (chainBalance === 0n && leg.value.balance === 0n && redeemed.amount === 0n) continue;
+          result.push(
+            PortfolioPositionSchema.parse({
+              account,
+              network: this.#network,
+              marketId: context.market.marketId,
+              marketAddress: binding.marketAddress,
+              poolAddress: binding.poolAddress,
+              outcomeTokenAddress: binding.outcomeTokenAddress,
+              tokenId: leg.id.toString(),
+              outcome: leg.outcome,
+              question: context.market.question,
+              asset: context.market.asset,
+              cadence: {
+                intervalSeconds,
+                seriesKey: `${this.#network}:${context.market.asset}:${intervalSeconds}`,
+              },
+              status: statusFromOnchain(binding),
+              expiresAt: isoFromUnix(context.market.expiry),
+              collateralDecimals: context.market.quoteDecimals,
+              balance: chainBalance.toString(),
+              indexedBalance: leg.value.balance.toString(),
+              costBasis: valuation.costBasis.toString(),
+              averageEntryPrice: valuation.averageEntryPrice?.toString() ?? null,
+              markPrice: valuation.markPrice?.toString() ?? null,
+              markValue: valuation.markValue?.toString() ?? null,
+              realizedPnl: valuation.realizedPnl.toString(),
+              unrealizedPnl: valuation.unrealizedPnl?.toString() ?? null,
+              settlementPayout: valuation.settlementPayout.toString(),
+              redeemedQuantity: redeemed.amount.toString(),
+              redemptionPayout: redeemed.payout.toString(),
+              claimStatus: valuation.claimStatus,
+              valuationAssumptions: valuation.assumptions,
+              resolution: indexedResolution,
+              oracleEvidence: evidence,
+              freshness,
+            }),
+          );
+        }
+      }
+      return PortfolioSnapshotSchema.parse({
+        account,
+        positions: result.sort((left, right) =>
+          `${right.expiresAt}:${right.marketId}:${right.outcome}`.localeCompare(
+            `${left.expiresAt}:${left.marketId}:${left.outcome}`,
+          ),
+        ),
+        freshness,
+      });
     });
   }
 
@@ -568,6 +701,7 @@ function normalizeCandle(
 }
 
 function normalizeResolutionSnapshot(
+  network: SomniaNetwork,
   market: BinaryMarket,
   binding: ResolvedMarketBinding,
   indexed: MarketResolutionRead,
@@ -579,8 +713,36 @@ function normalizeResolutionSnapshot(
     marketId: market.marketId,
     resolution: marketResolution(market, binding, openingPrice, resolutionPrice),
     eventCount: indexed.events.length.toString(),
+    evidence: oracleEvidence(network, market, indexed),
     freshness,
   });
+}
+
+function oracleEvidence(network: SomniaNetwork, market: BinaryMarket, indexed: MarketResolutionRead) {
+  const resolutionEvent = indexed.events.at(-1) ?? null;
+  const evidenceTransaction =
+    resolutionEvent?.txHash ?? indexed.closingAnswer?.txHash ?? indexed.openingAnswer?.txHash ?? null;
+  return {
+    marketId: market.marketId,
+    question: market.oracleQuestion,
+    closingQuestionId: indexed.closingAnswer?.oracleQuestionId ?? market.oracleQuestionId ?? null,
+    openingQuestionId: indexed.reference?.oracleQuestionId ?? null,
+    openingValue: indexed.openingAnswer?.numericValue ?? null,
+    closingValue: indexed.closingAnswer?.numericValue ?? null,
+    resolutionTransactionHash: resolutionEvent?.txHash ?? null,
+    closingOracleTransactionHash: indexed.closingAnswer?.txHash ?? null,
+    openingOracleTransactionHash: indexed.openingAnswer?.txHash ?? null,
+    graphUrl: null,
+    explorerUrl: evidenceTransaction
+      ? `${network === "shannon" ? "https://shannon-explorer.somnia.network" : "https://explorer.somnia.network"}/tx/${evidenceTransaction}`
+      : null,
+    state:
+      indexed.closingAnswer || indexed.openingAnswer || resolutionEvent
+        ? ("available" as const)
+        : market.status === "Resolved" || market.status === "Voided" || market.status === "Finalized"
+          ? ("unavailable" as const)
+          : ("pending" as const),
+  };
 }
 
 function normalizePositionRows(

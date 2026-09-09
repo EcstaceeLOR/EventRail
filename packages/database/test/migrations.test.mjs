@@ -34,6 +34,10 @@ test(
       assert.ok(tableResult.rows.some((row) => row.tablename === "trade_plans"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "trade_executions"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "trade_execution_fills"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "portfolio_positions"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "claim_candidates"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "claim_scan_checkpoints"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "redemption_records"));
     } finally {
       await pool.end();
     }

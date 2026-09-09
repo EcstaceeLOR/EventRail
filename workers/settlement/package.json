@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@eventrail/database": "workspace:*",
-    "@eventrail/dreamdex-adapter": "workspace:*"
+    "@eventrail/dreamdex-adapter": "workspace:*",
+    "@eventrail/types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "26.5.0",

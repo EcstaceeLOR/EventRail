@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { WalletEmptyState } from "../../components/wallet-empty-state";
+import { PortfolioDashboard } from "../../components/portfolio-dashboard";
 
 export const metadata: Metadata = { title: "Portfolio" };
 
@@ -13,7 +13,7 @@ export default function PortfolioPage() {
           <p>Live value, exposure, and performance across every event.</p>
         </div>
       </div>
-      <WalletEmptyState kind="portfolio" />
+      <PortfolioDashboard />
     </section>
   );
 }
