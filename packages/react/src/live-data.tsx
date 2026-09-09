@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import type { EventRailClient } from "@eventrail/api-client";
