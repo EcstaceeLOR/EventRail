@@ -1,0 +1,97 @@
+import type { EventMarket } from "@eventrail/types";
+
+export interface DisplayMarket extends EventMarket {
+  change: number;
+  traders: number;
+  featured?: boolean;
+}
+
+export const markets: readonly DisplayMarket[] = [
+  {
+    id: "somnia-mainnet-tvl-500m",
+    slug: "somnia-mainnet-tvl-500m",
+    question: "Will Somnia mainnet TVL exceed $500M before 2027?",
+    category: "Crypto",
+    phase: "trading",
+    yesPrice: 0.64,
+    noPrice: 0.36,
+    volumeUsd: 284300,
+    liquidityUsd: 91400,
+    closesAt: "2026-12-31T23:59:59Z",
+    change: 8.2,
+    traders: 1824,
+    featured: true,
+  },
+  {
+    id: "eth-above-6000",
+    slug: "eth-above-6000",
+    question: "Will ETH trade above $6,000 by December 1?",
+    category: "Crypto",
+    phase: "trading",
+    yesPrice: 0.42,
+    noPrice: 0.58,
+    volumeUsd: 193800,
+    liquidityUsd: 67800,
+    closesAt: "2026-12-01T00:00:00Z",
+    change: -3.1,
+    traders: 1309,
+  },
+  {
+    id: "ai-agent-billion-transactions",
+    slug: "ai-agent-billion-transactions",
+    question: "Will AI agents execute 1B onchain transactions in Q4?",
+    category: "Technology",
+    phase: "trading",
+    yesPrice: 0.71,
+    noPrice: 0.29,
+    volumeUsd: 148200,
+    liquidityUsd: 52600,
+    closesAt: "2026-12-31T23:59:59Z",
+    change: 12.4,
+    traders: 967,
+  },
+  {
+    id: "world-cup-top-scorer-double-digits",
+    slug: "world-cup-top-scorer-double-digits",
+    question: "Will the 2026 World Cup top scorer reach double digits?",
+    category: "Sports",
+    phase: "trading",
+    yesPrice: 0.24,
+    noPrice: 0.76,
+    volumeUsd: 109500,
+    liquidityUsd: 48300,
+    closesAt: "2026-12-20T00:00:00Z",
+    change: 1.8,
+    traders: 742,
+  },
+  {
+    id: "us-rate-cut-october",
+    slug: "us-rate-cut-october",
+    question: "Will the US announce another rate cut before November?",
+    category: "Economy",
+    phase: "trading",
+    yesPrice: 0.53,
+    noPrice: 0.47,
+    volumeUsd: 97700,
+    liquidityUsd: 38200,
+    closesAt: "2026-10-31T23:59:59Z",
+    change: 5.7,
+    traders: 611,
+  },
+  {
+    id: "somnia-gaming-million-dau",
+    slug: "somnia-gaming-million-dau",
+    question: "Will a Somnia game reach 1M daily active users in 2026?",
+    category: "Gaming",
+    phase: "trading",
+    yesPrice: 0.59,
+    noPrice: 0.41,
+    volumeUsd: 84600,
+    liquidityUsd: 34700,
+    closesAt: "2026-12-31T23:59:59Z",
+    change: 6.6,
+    traders: 504,
+  },
+];
+
+export const formatUsd = (value: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", notation: "compact", maximumFractionDigits: 1 }).format(value);
