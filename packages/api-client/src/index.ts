@@ -25,13 +25,20 @@ export class EventRailClient {
     return this.#request("/v1/markets");
   }
 
-  planTrade(input: {
-    marketId: string;
-    outcome: "yes" | "no";
-    amountUsdso: string;
-    account: `0x${string}`;
-  }): Promise<TransactionPlan> {
-    return this.#request("/v1/transactions/trade", { method: "POST", body: JSON.stringify(input) });
+  planTrade(
+    input: {
+      marketId: string;
+      outcome: "yes" | "no";
+      amountUsdso: string;
+      account: `0x${string}`;
+    },
+    idempotencyKey: string,
+  ): Promise<TransactionPlan> {
+    return this.#request("/v1/transaction-plans/trades", {
+      method: "POST",
+      headers: { "idempotency-key": idempotencyKey },
+      body: JSON.stringify(input),
+    });
   }
 
   async #request<T>(path: string, init: RequestInit = {}): Promise<T> {

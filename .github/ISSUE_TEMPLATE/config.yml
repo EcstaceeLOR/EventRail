@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/EcstaceeLOR/EventRail/security/advisories/new
+    about: Report vulnerabilities privately; never open a public security issue.
+  - name: Support and questions
+    url: https://github.com/EcstaceeLOR/EventRail/discussions
+    about: Ask integration and usage questions when Discussions are enabled.

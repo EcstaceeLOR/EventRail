@@ -42,3 +42,12 @@ pnpm check
 The check includes ESLint, strict TypeScript, unit tests, formatting, repository hygiene, secret-pattern scanning, and a meta-test that proves intentional lint, type, and test failures are rejected. Conventional commits and staged-file checks run automatically after `pnpm install` configures the Git hooks.
 
 Copy `.env.example` to `.env.local` when network integration begins. Never commit wallet keys or service credentials.
+
+## Project documentation
+
+- [Product brief](docs/product/brief.md), [success metrics](docs/product/metrics.md), and [multi-page user flows](docs/product/sitemap-and-flows.md)
+- [System-boundary ADR](docs/architecture/adr-0001-system-boundaries.md) and [v1 contract policy](docs/architecture/api-and-events-v1.md)
+- [DreamDEX Shannon integration spike](docs/spikes/dreamdex-shannon.md)
+- [Contributing](CONTRIBUTING.md), [security](SECURITY.md), and [support](SUPPORT.md)
+
+EventRail is licensed under the [MIT License](LICENSE).
