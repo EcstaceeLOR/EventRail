@@ -5,4 +5,6 @@ DROP TABLE integrator_analytics_events;
 DROP TABLE integrator_audit_events;
 DROP TABLE integrator_configs;
 DROP TABLE integrator_api_keys;
-DROP TABLE integrators;
+ALTER TABLE integrators
+  DROP COLUMN analytics_retention_days,
+  DROP COLUMN owner_address;

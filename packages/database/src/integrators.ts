@@ -13,11 +13,11 @@ export class PostgresIntegratorRepository implements ApiKeyStore {
 
   async create(name: string, ownerAddress?: string): Promise<{ id: string; name: string }> {
     const id = crypto.randomUUID();
-    await this.pool.query("INSERT INTO integrators (id, name, owner_address) VALUES ($1, $2, $3)", [
-      id,
-      name,
-      ownerAddress ?? null,
-    ]);
+    const slug = `integrator-${id}`;
+    await this.pool.query(
+      "INSERT INTO integrators (id, slug, display_name, owner_address) VALUES ($1, $2, $3, $4)",
+      [id, slug, name, ownerAddress ?? null],
+    );
     return { id, name };
   }
 

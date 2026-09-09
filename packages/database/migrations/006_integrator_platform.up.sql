@@ -1,10 +1,7 @@
-CREATE TABLE integrators (
-  id uuid PRIMARY KEY,
-  name text NOT NULL CHECK (char_length(name) BETWEEN 2 AND 80),
-  owner_address text,
-  analytics_retention_days integer NOT NULL DEFAULT 90 CHECK (analytics_retention_days BETWEEN 1 AND 365),
-  created_at timestamptz NOT NULL DEFAULT now()
-);
+ALTER TABLE integrators
+  ADD COLUMN owner_address text,
+  ADD COLUMN analytics_retention_days integer NOT NULL DEFAULT 90
+    CHECK (analytics_retention_days BETWEEN 1 AND 365);
 
 CREATE TABLE integrator_api_keys (
   id uuid PRIMARY KEY,
