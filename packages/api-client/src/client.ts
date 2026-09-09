@@ -10,7 +10,9 @@ import {
   NormalizedFillSchema,
   NormalizedMarketSchema,
   NormalizedOrderBookSchema,
-  NormalizedPositionSchema,
+  PortfolioPositionSchema,
+  RedemptionPlanSchema,
+  ResolutionSnapshotSchema,
   OutcomeBalancesSchema,
   TransactionPlanSchema,
   TradePlanSchema,
@@ -27,7 +29,9 @@ import {
   type NormalizedFill,
   type NormalizedMarket,
   type NormalizedOrderBook,
-  type NormalizedPosition,
+  type PortfolioPosition,
+  type RedemptionPlan,
+  type ResolutionSnapshot,
   type OutcomeBalances,
   type SomniaNetwork,
   type TransactionPlan,
@@ -103,6 +107,14 @@ export class EventRailClient {
     );
   }
 
+  getResolution(marketId: string, signal?: AbortSignal): Promise<ResolutionSnapshot> {
+    return this.#request(
+      `/v1/data/markets/${encodeURIComponent(marketId)}/resolution`,
+      ResolutionSnapshotSchema,
+      optionalSignal(signal),
+    );
+  }
+
   getOrderBook(marketId: string, signal?: AbortSignal): Promise<NormalizedOrderBook> {
     return this.#request(
       `/v1/data/markets/${encodeURIComponent(marketId)}/book`,
@@ -139,10 +151,10 @@ export class EventRailClient {
     );
   }
 
-  getPositions(account: string, signal?: AbortSignal): Promise<readonly NormalizedPosition[]> {
+  getPositions(account: string, signal?: AbortSignal): Promise<readonly PortfolioPosition[]> {
     return this.#request(
       `/v1/data/accounts/${encodeURIComponent(account)}/positions`,
-      NormalizedPositionSchema.array(),
+      PortfolioPositionSchema.array(),
       optionalSignal(signal),
     );
   }
@@ -153,6 +165,17 @@ export class EventRailClient {
       NormalizedClaimSchema.array(),
       optionalSignal(signal),
     );
+  }
+
+  createRedemptionPlan(
+    input: { account: `0x${string}`; marketId: string },
+    signal?: AbortSignal,
+  ): Promise<RedemptionPlan> {
+    return this.#request("/v1/redemptions/plans", RedemptionPlanSchema, {
+      method: "POST",
+      body: JSON.stringify(input),
+      ...optionalSignal(signal),
+    });
   }
 
   getActivity(

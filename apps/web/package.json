@@ -12,6 +12,7 @@
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@somnia-chain/markets-sdk": "0.29.0",
     "@eventrail/api-client": "workspace:*",
     "@eventrail/config": "workspace:*",
     "@eventrail/core": "workspace:*",

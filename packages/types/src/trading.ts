@@ -191,3 +191,40 @@ export const FundingRouteSchema = z.object({
 });
 
 export type FundingRoute = z.infer<typeof FundingRouteSchema>;
+
+export const RedemptionEntrySchema = z.object({
+  outcome: MarketOutcomeSchema,
+  outcomeIndex: z.union([z.literal(0), z.literal(1)]),
+  tokenId: UnsignedIntegerStringSchema,
+  amount: z.string().regex(/^[1-9][0-9]*$/),
+  expectedPayout: UnsignedIntegerStringSchema,
+});
+
+export const RedemptionPlanSchema = z.object({
+  version: z.literal("1"),
+  planId: z.uuid(),
+  planHash: Bytes32Schema,
+  network: SomniaNetworkSchema,
+  chainId: z.number().int().positive(),
+  account: AddressSchema,
+  marketId: Bytes32Schema,
+  outcomeTokenAddress: AddressSchema,
+  moduleAddress: AddressSchema,
+  resolution: z.object({
+    state: z.enum(["resolved", "voided"]),
+    winningOutcome: MarketOutcomeSchema.nullable(),
+    payoutUp: UnsignedIntegerStringSchema.nullable(),
+    payoutDown: UnsignedIntegerStringSchema.nullable(),
+    payoutDenominator: UnsignedIntegerStringSchema.nullable(),
+  }),
+  entries: z.array(RedemptionEntrySchema).min(1).max(2),
+  calls: z.array(PlannedCallSchema).min(2).max(2),
+  sourceBlock: UnsignedIntegerStringSchema,
+  summary: z.string().min(1),
+  assumptions: z.array(z.string().min(1)),
+  createdAt: IsoDateTimeSchema,
+  expiresAt: IsoDateTimeSchema,
+});
+
+export type RedemptionEntry = z.infer<typeof RedemptionEntrySchema>;
+export type RedemptionPlan = z.infer<typeof RedemptionPlanSchema>;

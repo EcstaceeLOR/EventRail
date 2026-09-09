@@ -1,10 +1,11 @@
 "use client";
 
-import { useCandles, useMarket, useOrderBook, useSeries, useTrades } from "@eventrail/react";
+import { useCandles, useMarket, useOrderBook, useResolution, useSeries, useTrades } from "@eventrail/react";
 import Link from "next/link";
 import { formatUnits } from "viem";
 import type { DisplayMarket } from "../lib/markets";
 import { MarketCountdown } from "./market-countdown";
+import { OracleEvidencePanel } from "./oracle-evidence";
 import { DepthVisualization, ProbabilityChart, RecentFills } from "./market-visualizations";
 import { TradeTicket } from "./trade-ticket";
 
@@ -14,6 +15,7 @@ export function MarketWorkspace({
 }: Readonly<{ marketId: string; fallback: DisplayMarket | undefined }>) {
   const isDreamDexId = /^0x[0-9a-fA-F]{64}$/.test(marketId);
   const market = useMarket(isDreamDexId ? marketId : "");
+  const resolution = useResolution(isDreamDexId ? marketId : "");
   const book = useOrderBook(isDreamDexId ? marketId : "");
   const trades = useTrades(isDreamDexId ? marketId : "");
   const candles = useCandles(isDreamDexId ? marketId : "", 60);
@@ -155,6 +157,11 @@ export function MarketWorkspace({
               </div>
             </dl>
           </section>
+          <OracleEvidencePanel
+            marketId={value.marketId}
+            resolution={resolution.query.data?.resolution ?? value.resolution}
+            evidence={resolution.query.data?.evidence ?? null}
+          />
         </main>
         {!terminal && market.state === "live" ? (
           <TradeTicket key={value.marketId} yesPrice={last} noPrice={1 - last} market={value} />

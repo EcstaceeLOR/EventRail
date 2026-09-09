@@ -1515,6 +1515,380 @@ pre b {
   }
 }
 
+/* Milestone 4: portfolio and settlement */
+.portfolio-dashboard,
+.claims-center,
+.position-list,
+.claim-list {
+  display: grid;
+  gap: 18px;
+}
+.portfolio-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+.portfolio-metric,
+.claim-hero-card,
+.position-card,
+.claim-card,
+.portfolio-activity {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel);
+}
+.portfolio-metric {
+  min-height: 138px;
+  display: grid;
+  align-content: center;
+  gap: 8px;
+  padding: 22px;
+}
+.portfolio-metric--accent {
+  border-color: rgba(116, 251, 192, 0.28);
+  background: linear-gradient(135deg, rgba(40, 233, 154, 0.12), var(--panel));
+}
+.portfolio-metric span,
+.portfolio-metric small,
+.position-card dt,
+.claim-hero-card span,
+.claim-hero-card small,
+.claim-action span,
+.claim-action small,
+.oracle-evidence span {
+  color: var(--muted);
+}
+.portfolio-metric span,
+.claim-hero-card span,
+.claim-action span,
+.oracle-evidence span {
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.portfolio-metric strong {
+  font-size: clamp(18px, 2vw, 25px);
+  letter-spacing: -0.04em;
+}
+.portfolio-filter-rail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 190px)) 1fr;
+  gap: 12px;
+  align-items: end;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(16, 34, 29, 0.72);
+}
+.portfolio-filter-rail label {
+  display: grid;
+  gap: 6px;
+  color: var(--dim);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.portfolio-filter-rail select {
+  min-height: 42px;
+  padding: 0 11px;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--panel-2);
+}
+.portfolio-filter-rail > span {
+  justify-self: end;
+  padding-bottom: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.position-card {
+  display: grid;
+  grid-template-columns: minmax(250px, 1.3fr) minmax(420px, 2fr) auto;
+  gap: 20px;
+  align-items: center;
+  padding: 20px;
+}
+.position-card-main,
+.position-card-main > div,
+.position-state {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.position-card-main {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.position-card-main > a,
+.claim-card header a {
+  font-weight: 700;
+  line-height: 1.35;
+}
+.position-card code,
+.portfolio-activity-row code {
+  color: var(--dim);
+  font-size: 10px;
+}
+.position-asset {
+  color: var(--muted);
+  font-size: 11px;
+}
+.outcome-chip {
+  padding: 4px 7px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.outcome-chip--up {
+  color: var(--mint);
+  background: rgba(116, 251, 192, 0.09);
+}
+.outcome-chip--down {
+  color: var(--coral);
+  background: rgba(255, 141, 121, 0.09);
+}
+.position-card > dl {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin: 0;
+}
+.position-card dl div {
+  display: grid;
+  gap: 5px;
+}
+.position-card dt {
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.position-card dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+}
+.position-state {
+  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 11px;
+  text-transform: capitalize;
+}
+.position-state a,
+.portfolio-activity a,
+.claim-action a,
+.oracle-evidence a {
+  color: var(--mint);
+}
+.oracle-evidence {
+  grid-column: 1 / -1;
+  padding-top: 15px;
+  border-top: 1px solid var(--line);
+}
+.oracle-evidence--compact {
+  padding: 0;
+  border: 0;
+}
+.oracle-evidence summary {
+  color: var(--mint);
+  cursor: pointer;
+  font-size: 11px;
+}
+.oracle-evidence-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  padding-top: 15px;
+}
+.oracle-evidence-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.oracle-evidence code {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 10px;
+  text-overflow: ellipsis;
+}
+.oracle-evidence-id,
+.oracle-evidence-links {
+  grid-column: span 2;
+}
+.oracle-evidence-links {
+  display: flex !important;
+  justify-content: flex-end;
+  align-items: end;
+}
+.portfolio-activity {
+  margin-top: 14px;
+  padding: 22px;
+}
+.portfolio-activity-row {
+  display: grid;
+  grid-template-columns: 120px 130px 1fr auto;
+  gap: 14px;
+  align-items: center;
+  padding: 13px 0;
+  border-top: 1px solid var(--line);
+  font-size: 11px;
+}
+.portfolio-activity-row time {
+  color: var(--muted);
+}
+.portfolio-skeleton {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+}
+.portfolio-skeleton i {
+  min-height: 138px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--panel), rgba(116, 251, 192, 0.08), var(--panel));
+  background-size: 220% 100%;
+  animation: data-shimmer 1.5s infinite linear;
+}
+.claim-hero-card {
+  display: grid;
+  grid-template-columns: 1fr 0.6fr;
+  overflow: hidden;
+}
+.claim-hero-card > div {
+  display: grid;
+  gap: 8px;
+  padding: clamp(24px, 4vw, 40px);
+}
+.claim-hero-card strong {
+  font-size: clamp(25px, 4vw, 42px);
+  letter-spacing: -0.05em;
+}
+.claim-batch {
+  border-left: 1px solid var(--line);
+  background: rgba(116, 251, 192, 0.035);
+}
+.claim-batch strong {
+  font-size: 20px;
+}
+.claim-tabs {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--panel);
+}
+.claim-tabs button {
+  min-height: 36px;
+  padding: 0 14px;
+  color: var(--muted);
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.claim-tabs button.active {
+  color: var(--ink);
+  background: var(--panel-2);
+}
+.claim-card {
+  display: grid;
+  gap: 20px;
+  padding: clamp(20px, 3vw, 28px);
+}
+.claim-card header,
+.claim-action {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: center;
+}
+.claim-card header > div,
+.claim-action > div {
+  display: grid;
+  gap: 7px;
+}
+.claim-legs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.claim-legs > div {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 11px;
+  background: var(--panel-2);
+}
+.claim-legs small {
+  color: var(--muted);
+}
+.claim-action {
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.claim-action strong {
+  font-size: 22px;
+}
+
+@media (max-width: 1040px) {
+  .portfolio-summary {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .position-card {
+    grid-template-columns: 1fr;
+  }
+  .position-state {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 700px) {
+  .portfolio-summary,
+  .portfolio-filter-rail,
+  .claim-hero-card,
+  .claim-legs,
+  .oracle-evidence-grid {
+    grid-template-columns: 1fr;
+  }
+  .portfolio-filter-rail > span {
+    justify-self: start;
+  }
+  .position-card > dl {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .portfolio-activity-row {
+    grid-template-columns: 1fr 1fr;
+  }
+  .claim-batch {
+    border-top: 1px solid var(--line);
+    border-left: 0;
+  }
+  .claim-card header,
+  .claim-action {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .claim-legs > div {
+    grid-template-columns: auto 1fr;
+  }
+  .claim-legs small {
+    grid-column: 1 / -1;
+  }
+  .oracle-evidence-id,
+  .oracle-evidence-links {
+    grid-column: auto;
+  }
+  .oracle-evidence-links {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
 /* Foundation shell and shared interactive states */
 [data-theme="light"] {
   --ink: #10201c;

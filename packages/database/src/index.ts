@@ -4,6 +4,8 @@ export { createDatabasePool, withDatabaseTransaction } from "./pool.js";
 export type { DatabasePool } from "./pool.js";
 export { PostgresTradePlanStore, type PersistedTradePlan } from "./trade-plans.js";
 export { PostgresTradeExecutionRepository } from "./trade-executions.js";
+export { PostgresPortfolioRepository } from "./portfolio.js";
+export { PostgresClaimRepository } from "./claims.js";
 export { PostgresTradeActivityReader, type TradeActivityFilter } from "./trade-activity.js";
 export {
   PostgresDreamDexMarketGenerationRepository,

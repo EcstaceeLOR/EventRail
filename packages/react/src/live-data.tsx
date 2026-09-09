@@ -11,7 +11,8 @@ import type {
   NormalizedFill,
   NormalizedMarket,
   NormalizedOrderBook,
-  NormalizedPosition,
+  PortfolioPosition,
+  ResolutionSnapshot,
   OutcomeBalances,
   SomniaNetwork,
   TradeActivity,
@@ -71,6 +72,7 @@ export const queryKeys = {
   series: (network: SomniaNetwork) => ["eventrail", "series", network] as const,
   markets: (network: SomniaNetwork) => ["eventrail", "markets", network] as const,
   market: (marketId: string) => ["eventrail", "market", marketId] as const,
+  resolution: (marketId: string) => ["eventrail", "market", marketId, "resolution"] as const,
   book: (marketId: string) => ["eventrail", "book", marketId] as const,
   trades: (marketId: string) => ["eventrail", "trades", marketId] as const,
   candles: (marketId: string, intervalSeconds: number) =>
@@ -120,6 +122,16 @@ export function useMarket(marketId: string): LiveDataView<NormalizedMarket> {
   );
 }
 
+export function useResolution(marketId: string): LiveDataView<ResolutionSnapshot> {
+  const { client } = useEventRail();
+  const query = useQuery({
+    queryKey: queryKeys.resolution(marketId),
+    queryFn: ({ signal }) => client.getResolution(marketId, signal),
+    enabled: marketId.length > 0,
+  });
+  return view(query, query.data?.freshness, query.data?.resolution.state !== "unresolved");
+}
+
 export function useOrderBook(marketId: string): LiveDataView<NormalizedOrderBook> {
   const { client } = useEventRail();
   const query = useQuery({
@@ -164,7 +176,7 @@ export function useBalances(account: string, marketId: string): LiveDataView<Out
   return view(query, query.data?.freshness);
 }
 
-export function usePositions(account: string): LiveDataView<readonly NormalizedPosition[]> {
+export function usePositions(account: string): LiveDataView<readonly PortfolioPosition[]> {
   const { client } = useEventRail();
   const query = useQuery({
     queryKey: queryKeys.positions(account),
