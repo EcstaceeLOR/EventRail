@@ -2,20 +2,27 @@
   "name": "@eventrail/web",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "build": "next build",
     "dev": "next dev --port 3000",
     "start": "next start --port 3000",
     "typecheck": "tsc --noEmit",
-    "test": "node --test",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
     "clean": "node -e \"require('fs').rmSync('.next',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@eventrail/config": "workspace:*",
     "@eventrail/core": "workspace:*",
+    "@eventrail/react": "workspace:*",
     "@eventrail/types": "workspace:*",
+    "@tanstack/react-query": "5.102.8",
+    "@walletconnect/ethereum-provider": "2.24.0",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "viem": "2.56.3",
+    "wagmi": "3.7.7"
   },
   "devDependencies": {
     "@types/node": "26.5.0",

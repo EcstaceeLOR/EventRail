@@ -1,0 +1,10 @@
+DROP TABLE IF EXISTS chain_events;
+DROP TABLE IF EXISTS indexer_checkpoints;
+DROP TABLE IF EXISTS idempotency_keys;
+DROP TABLE IF EXISTS transaction_plans;
+DROP TABLE IF EXISTS settlements;
+DROP TABLE IF EXISTS positions;
+DROP TABLE IF EXISTS trades;
+DROP TABLE IF EXISTS outcomes;
+DROP TABLE IF EXISTS markets;
+DROP TABLE IF EXISTS integrators;

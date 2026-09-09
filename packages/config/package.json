@@ -1,5 +1,5 @@
 {
-  "name": "@eventrail/database",
+  "name": "@eventrail/config",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,23 +9,27 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./public": {
+      "types": "./dist/public.d.ts",
+      "default": "./dist/public.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
     }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "migrate": "node scripts/migrate.mjs up",
-    "migrate:down": "node scripts/migrate.mjs down",
-    "seed": "node scripts/seed.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test test/*.test.mjs",
+    "test": "pnpm build && node --test",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
-    "@eventrail/types": "workspace:*",
-    "pg": "8.23.0"
+    "zod": "4.5.4"
   },
   "devDependencies": {
-    "@types/pg": "8.23.1",
+    "@types/node": "26.5.0",
     "typescript": "6.0.3"
   }
 }

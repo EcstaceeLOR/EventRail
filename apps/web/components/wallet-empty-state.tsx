@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useWallet } from "./wallet-provider";
 
 export function WalletEmptyState({ kind }: Readonly<{ kind: "portfolio" | "claims" }>) {
-  const [connecting, setConnecting] = useState(false);
+  const wallet = useWallet();
   const isPortfolio = kind === "portfolio";
   return (
     <div className="wallet-empty">
@@ -23,12 +23,13 @@ export function WalletEmptyState({ kind }: Readonly<{ kind: "portfolio" | "claim
       <button
         className="primary-button"
         type="button"
-        onClick={() => {
-          setConnecting(true);
-          window.setTimeout(() => setConnecting(false), 900);
-        }}
+        onClick={wallet.connected && !wallet.correctNetwork ? wallet.switchToShannon : wallet.openWallet}
       >
-        {connecting ? "Finding wallets…" : "Connect wallet"}
+        {wallet.connected
+          ? wallet.correctNetwork
+            ? "View connected wallet"
+            : "Switch to Shannon"
+          : "Connect wallet"}
       </button>
       <Link href="/markets">Browse markets without connecting →</Link>
     </div>

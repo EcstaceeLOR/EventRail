@@ -12,6 +12,7 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@eventrail/config": "workspace:*",
     "@eventrail/types": "workspace:*",
     "fastify": "5.12.3",
     "zod": "4.5.4"

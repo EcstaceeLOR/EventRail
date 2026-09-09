@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+  PNPM_VERSION: 10.34.5
+  NODE_VERSION: 24
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: mkdir -p test-results coverage/v8
+      - name: Run repository quality gate
+        run: pnpm check 2>&1 | tee test-results/check.log
+        env:
+          NODE_V8_COVERAGE: coverage/v8
+      - name: Upload test and raw V8 coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-${{ github.run_id }}
+          path: |
+            test-results/
+            coverage/
+            **/coverage/
+          if-no-files-found: warn
+          retention-days: 14
+
+  build-contracts:
+    name: Production build and contracts
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Build affected workspaces on pull requests
+        if: github.event_name == 'pull_request'
+        run: pnpm build:affected
+      - name: Build every workspace on main
+        if: github.event_name == 'push'
+        run: pnpm build
+      - run: pnpm openapi:lint
+      - run: pnpm packages:validate
+
+  database-migrations:
+    name: Database migrations
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine@sha256:d3e1620b530c944afa6e887d22eb899824da68e19c52024bf98f5220c88a65b2
+        env:
+          POSTGRES_DB: eventrail_test
+          POSTGRES_USER: eventrail
+          POSTGRES_PASSWORD: eventrail_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eventrail -d eventrail_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      redis:
+        image: redis:8.8-alpine@sha256:96cb544fa0af5aa898d160cffb7dae70c3df117190fc123831c64712cda425ff
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    env:
+      TEST_DATABASE_URL: postgresql://eventrail:eventrail_test@localhost:5432/eventrail_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+          run_install: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify forward, rollback, and repeat migration safety
+        run: pnpm --filter @eventrail/database test

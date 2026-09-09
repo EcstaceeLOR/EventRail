@@ -1,8 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getWalletAction } from "../lib/wallet-state";
+import { useWallet } from "./wallet-provider";
 
 export function TradeTicket({ yesPrice, noPrice }: Readonly<{ yesPrice: number; noPrice: number }>) {
+  const wallet = useWallet();
+  const walletAction = getWalletAction(wallet.connected, wallet.correctNetwork);
   const [side, setSide] = useState<"yes" | "no">("yes");
   const [amount, setAmount] = useState("25");
   const price = side === "yes" ? yesPrice : noPrice;
@@ -62,8 +66,22 @@ export function TradeTicket({ yesPrice, noPrice }: Readonly<{ yesPrice: number; 
           <dd>+${Math.max(0, shares - numericAmount).toFixed(2)}</dd>
         </div>
       </dl>
-      <button className="primary-button ticket-submit" type="button">
-        Connect wallet to review
+      <button
+        className="primary-button ticket-submit"
+        type="button"
+        onClick={
+          walletAction === "connect"
+            ? wallet.openWallet
+            : walletAction === "switch"
+              ? wallet.switchToShannon
+              : undefined
+        }
+      >
+        {walletAction === "connect"
+          ? "Connect wallet to review"
+          : walletAction === "switch"
+            ? "Switch to Shannon"
+            : "Review trade"}
       </button>
       <p className="ticket-note">
         Your wallet signs the final DreamDEX transaction. EventRail never holds your funds.
