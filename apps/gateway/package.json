@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@eventrail/config": "workspace:*",
+    "@eventrail/core": "workspace:*",
+    "@eventrail/dreamdex-adapter": "workspace:*",
     "@eventrail/redis": "workspace:*",
     "@eventrail/types": "workspace:*",
     "fastify": "5.12.3",

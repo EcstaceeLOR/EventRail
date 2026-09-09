@@ -20,7 +20,8 @@
   },
   "dependencies": {
     "@eventrail/api-client": "workspace:*",
-    "@eventrail/types": "workspace:*"
+    "@eventrail/types": "workspace:*",
+    "@tanstack/react-query": "5.102.8"
   },
   "peerDependencies": {
     "react": ">=19.0.0"

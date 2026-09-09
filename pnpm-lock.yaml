@@ -92,6 +92,12 @@ importers:
       '@eventrail/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@eventrail/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@eventrail/dreamdex-adapter':
+        specifier: workspace:*
+        version: link:../../packages/dreamdex-adapter
       '@eventrail/redis':
         specifier: workspace:*
         version: link:../../packages/redis
@@ -166,6 +172,9 @@ importers:
       '@eventrail/types':
         specifier: workspace:*
         version: link:../types
+      zod:
+        specifier: 4.5.4
+        version: 4.5.4
     devDependencies:
       typescript:
         specifier: 6.0.3
@@ -243,6 +252,9 @@ importers:
       '@eventrail/types':
         specifier: workspace:*
         version: link:../types
+      '@tanstack/react-query':
+        specifier: 5.102.8
+        version: 5.102.8(react@19.2.8)
     devDependencies:
       '@types/react':
         specifier: 19.2.18

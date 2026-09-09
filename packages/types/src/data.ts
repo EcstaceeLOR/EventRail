@@ -149,6 +149,18 @@ export const ResolutionSnapshotSchema = z.object({
   freshness: DataFreshnessSchema,
 });
 
+export const MarketSeriesSchema = z.object({
+  network: SomniaNetworkSchema,
+  venue: z.literal("dreamdex"),
+  seriesKey: z.string().min(1),
+  asset: z.string().min(1),
+  intervalSeconds: UnsignedIntegerStringSchema,
+  currentMarketId: Bytes32Schema,
+  currentStatus: MarketStatusSchema,
+  generationCount: UnsignedIntegerStringSchema,
+  freshness: DataFreshnessSchema,
+});
+
 export const ExecutableQuoteSchema = z.object({
   marketId: Bytes32Schema,
   outcome: MarketOutcomeSchema,
@@ -200,5 +212,6 @@ export type NormalizedPosition = z.infer<typeof NormalizedPositionSchema>;
 export type NormalizedClaim = z.infer<typeof NormalizedClaimSchema>;
 export type OutcomeBalances = z.infer<typeof OutcomeBalancesSchema>;
 export type ResolutionSnapshot = z.infer<typeof ResolutionSnapshotSchema>;
+export type MarketSeries = z.infer<typeof MarketSeriesSchema>;
 export type ExecutableQuote = z.infer<typeof ExecutableQuoteSchema>;
 export type DataStreamEvent = z.infer<typeof DataStreamEventSchema>;
