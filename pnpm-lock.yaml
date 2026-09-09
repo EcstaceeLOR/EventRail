@@ -275,6 +275,9 @@ importers:
       '@eventrail/dreamdex-adapter':
         specifier: workspace:*
         version: file:packages/dreamdex-adapter(react@19.2.8)(typescript@6.0.3)
+      '@eventrail/types':
+        specifier: workspace:*
+        version: link:../../packages/types
     devDependencies:
       '@types/node':
         specifier: 26.5.0

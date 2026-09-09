@@ -18,6 +18,9 @@ test(
   { skip: !process.env.TEST_DATABASE_URL },
   async () => {
     const connectionString = process.env.TEST_DATABASE_URL;
+    const migrations = await loadMigrations();
+    const latestVersion = migrations.at(-1)?.version;
+    assert.ok(latestVersion);
     await migrate(connectionString, "up");
 
     const pool = new pg.Pool({ connectionString, max: 1 });
@@ -27,13 +30,14 @@ test(
       );
       assert.ok(tableResult.rows.some((row) => row.tablename === "markets"));
       assert.ok(tableResult.rows.some((row) => row.tablename === "trades"));
+      assert.ok(tableResult.rows.some((row) => row.tablename === "dreamdex_market_generations"));
     } finally {
       await pool.end();
     }
 
     const reverted = await migrate(connectionString, "down");
-    assert.deepEqual(reverted.reverted, ["001"]);
+    assert.deepEqual(reverted.reverted, [latestVersion]);
     const reapplied = await migrate(connectionString, "up");
-    assert.deepEqual(reapplied.applied, ["001"]);
+    assert.deepEqual(reapplied.applied, [latestVersion]);
   },
 );
