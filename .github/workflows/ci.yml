@@ -37,7 +37,10 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: mkdir -p test-results coverage/v8
       - name: Run repository quality gate
-        run: pnpm check 2>&1 | tee test-results/check.log
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm check 2>&1 | tee test-results/check.log
         env:
           NODE_V8_COVERAGE: coverage/v8
       - name: Upload test and raw V8 coverage artifacts
