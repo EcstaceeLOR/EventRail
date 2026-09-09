@@ -10,6 +10,12 @@
     "test": "node --test",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
-  "dependencies": { "@eventrail/database": "workspace:*", "@eventrail/types": "workspace:*" },
-  "devDependencies": { "@types/node": "26.5.0", "typescript": "7.0.2" }
+  "dependencies": {
+    "@eventrail/database": "workspace:*",
+    "@eventrail/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "26.5.0",
+    "typescript": "6.0.3"
+  }
 }

@@ -25,7 +25,12 @@ export class EventRailClient {
     return this.#request("/v1/markets");
   }
 
-  planTrade(input: { marketId: string; outcome: "yes" | "no"; amountUsdso: string; account: `0x${string}` }): Promise<TransactionPlan> {
+  planTrade(input: {
+    marketId: string;
+    outcome: "yes" | "no";
+    amountUsdso: string;
+    account: `0x${string}`;
+  }): Promise<TransactionPlan> {
     return this.#request("/v1/transactions/trade", { method: "POST", body: JSON.stringify(input) });
   }
 
@@ -41,7 +46,10 @@ export class EventRailClient {
 }
 
 export class EventRailApiError extends Error {
-  constructor(readonly status: number, message: string) {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
     super(message || `EventRail API request failed with status ${status}`);
     this.name = "EventRailApiError";
   }
