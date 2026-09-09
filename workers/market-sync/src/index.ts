@@ -15,7 +15,7 @@ export interface MarketSyncRun {
 }
 
 export interface MarketSyncEventPublisher {
-  publish(event: DataStreamEvent): Promise<void>;
+  publish(event: DataStreamEvent): Promise<unknown>;
 }
 
 export interface MarketSynchronizerOptions {
