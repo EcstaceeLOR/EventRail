@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { gatewayRewriteDestination } from "./lib/gateway-routing";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
@@ -15,10 +14,6 @@ const nextConfig: NextConfig = {
   ],
   async headers() {
     return securityHeaders();
-  },
-  async rewrites() {
-    const upstream = process.env.EVENTRAIL_GATEWAY_UPSTREAM_URL ?? process.env.NEXT_PUBLIC_GATEWAY_URL;
-    return [{ source: "/gateway/:path*", destination: gatewayRewriteDestination(upstream) }];
   },
 };
 
