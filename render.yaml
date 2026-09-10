@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: eventrail-preview-gateway
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /v1/ready
+    autoDeployTrigger: checksPass
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: COMPONENT
+        value: demo
+      - key: APP_ENV
+        value: preview
+      - key: HOST
+        value: 0.0.0.0
+      - key: RELEASE_VERSION
+        value: render-preview
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eventrail-preview-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: eventrail-preview-redis
+          property: connectionString
+      - key: SOMNIA_RPC_URL
+        value: https://dream-rpc.somnia.network
+      - key: SOMNIA_WS_URL
+        value: wss://api.infra.testnet.somnia.network/ws
+      - key: DREAMDEX_INDEXER_URL
+        value: https://dev.smk.somnia.host/v1/graphql
+      - key: API_AUTH_REQUIRED
+        value: "0"
+      - key: TRANSACTION_PLANNING_ENABLED
+        value: "1"
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://eventrail.vercel.app
+      - key: WORKER_INTERVAL_MS
+        value: "5000"
+      - key: API_KEY_PEPPER
+        generateValue: true
+      - key: WEBHOOK_SIGNING_KEY
+        generateValue: true
+
+  - type: keyvalue
+    name: eventrail-preview-redis
+    plan: free
+    region: frankfurt
+    ipAllowList: []
+    maxmemoryPolicy: allkeys-lru
+    persistenceMode: off
+
+databases:
+  - name: eventrail-preview-postgres
+    plan: free
+    region: frankfurt
+    postgresMajorVersion: "18"
+    databaseName: eventrail
+    user: eventrail
+    ipAllowList: []

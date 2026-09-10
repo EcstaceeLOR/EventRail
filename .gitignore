@@ -15,3 +15,6 @@ test-results/
 Thumbs.db
 scripts/.quality-gate-*/
 .codex-bin/
+
+.vercel
+.env*
