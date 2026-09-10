@@ -16,7 +16,6 @@ import {
 } from "@eventrail/database";
 import { TradePlanner } from "@eventrail/trading";
 import { ApiAccessService, OperationalMonitor } from "@eventrail/platform";
-import { createPublicClient, http } from "viem";
 
 const config = loadServerEnvironment(process.env);
 const { listen } = describeServerEnvironment(config);
@@ -28,7 +27,6 @@ const integrators = new PostgresIntegratorRepository(database);
 const registry = getDreamDexRegistry("shannon");
 const monitor = new OperationalMonitor(config.RELEASE_VERSION);
 monitor.set("planning_enabled", config.TRANSACTION_PLANNING_ENABLED ? 1 : 0);
-const chain = createPublicClient({ transport: http(config.SOMNIA_RPC_URL) });
 const binaryModule = registry.addresses.binaryModule;
 if (!binaryModule) throw new Error("DreamDEX binary module is not configured");
 const app = createGateway({
@@ -36,16 +34,15 @@ const app = createGateway({
   planningEnabled: config.TRANSACTION_PLANNING_ENABLED,
   allowedOrigins: config.CORS_ALLOWED_ORIGINS,
   readiness: async () => {
-    const [postgres, redisReady, rpc] = await Promise.allSettled([
-      database.query("SELECT 1"),
-      redis.ping(),
-      chain.getBlockNumber(),
-    ]);
+    // Readiness only covers dependencies required to serve requests. Somnia
+    // and DreamDEX are external data sources with their own bounded retries;
+    // making either part of Render's probe causes healthy instances to be
+    // replaced during a transient upstream slowdown.
+    const [postgres, redisReady] = await Promise.allSettled([database.query("SELECT 1"), redis.ping()]);
     monitor.set("stream_connected", redisReady.status === "fulfilled" ? 1 : 0);
     return {
       postgres: postgres.status === "fulfilled",
       redis: redisReady.status === "fulfilled",
-      rpc: rpc.status === "fulfilled",
     };
   },
   apiAccess: new ApiAccessService(integrators, config.API_KEY_PEPPER),

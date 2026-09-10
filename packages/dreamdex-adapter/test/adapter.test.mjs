@@ -285,6 +285,16 @@ test("portfolio reconciliation trusts ERC-6909 balances and remains repeatable f
   );
 });
 
+test("portfolio evidence falls back to the market question when DreamDEX omits the oracle question", async () => {
+  const { adapter, sdk } = fixture();
+  sdk.getBinaryMarket = async (id) =>
+    id.toLowerCase() === marketId ? market({ oracleQuestion: null }) : null;
+
+  const snapshot = await adapter.getPortfolioSnapshot(account);
+
+  assert.equal(snapshot.positions[0].oracleEvidence.question, "Will BTC close up?");
+});
+
 test("portfolio retains a claimed resolved winner from DreamDEX redemption history", async () => {
   const { adapter, sdk } = fixture();
   sdk.getOpenPositionsWithPnL = async () => [];
