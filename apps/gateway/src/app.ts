@@ -930,6 +930,8 @@ function assertQuoteStillExecutable(
   original: z.infer<typeof TradeQuoteSchema>,
   refreshed: z.infer<typeof TradeQuoteSchema>,
 ) {
+  const originalSourceBlock = BigInt(original.sourceBlock);
+  const refreshedSourceBlock = BigInt(refreshed.sourceBlock);
   const fields = [
     "network",
     "marketId",
@@ -947,9 +949,12 @@ function assertQuoteStillExecutable(
     "limitPrice",
     "tickSize",
     "lotSize",
-    "sourceBlock",
   ] as const;
-  if (fields.some((field) => original[field] !== refreshed[field])) {
+  if (
+    refreshedSourceBlock < originalSourceBlock ||
+    refreshedSourceBlock - originalSourceBlock > 20n ||
+    fields.some((field) => original[field] !== refreshed[field])
+  ) {
     throw new QuoteError(
       "STALE_BOOK",
       "The executable quote no longer matches authoritative DreamDEX depth.",
