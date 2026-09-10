@@ -36,7 +36,10 @@ await check("claims", new URL(`/v1/data/accounts/${account}/claims`, gatewayUrl)
   auth: true,
 });
 await checkStream(new URL("/v1/events?network=shannon", gatewayUrl));
-const market = Array.isArray(markets) ? markets[0] : markets?.data?.[0];
+const marketRows = Array.isArray(markets) ? markets : (markets?.data ?? []);
+const market = [...marketRows]
+  .filter((candidate) => candidate?.marketId)
+  .sort((left, right) => Date.parse(right.expiresAt ?? 0) - Date.parse(left.expiresAt ?? 0))[0];
 if (market?.marketId) {
   const quote = await post("quote", "/v1/trading/quotes", {
     marketId: market.marketId,

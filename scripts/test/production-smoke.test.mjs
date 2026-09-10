@@ -9,6 +9,7 @@ const smokeScript = fileURLToPath(new URL("../production-smoke.mjs", import.meta
 test("production smoke supports separate application and gateway origins", async (context) => {
   const applicationRequests = [];
   const gatewayRequests = [];
+  const quoteRequests = [];
   const planRequests = [];
   const application = createServer((request, response) => {
     applicationRequests.push(request.url);
@@ -30,16 +31,21 @@ test("production smoke supports separate application and gateway origins", async
       response.end(": connected\n\n");
       return;
     }
-    if (request.url === "/v1/trading/plans") {
+    if (request.url === "/v1/trading/quotes" || request.url === "/v1/trading/plans") {
       let body = "";
       request.setEncoding("utf8");
       for await (const chunk of request) body += chunk;
-      planRequests.push(JSON.parse(body));
+      const payload = JSON.parse(body);
+      if (request.url === "/v1/trading/quotes") quoteRequests.push(payload);
+      else planRequests.push(payload);
     }
     response.writeHead(200, { "content-type": "application/json" });
     response.end(
       request.url?.startsWith("/v1/data/markets?")
-        ? JSON.stringify([{ marketId: `0x${"ab".repeat(32)}` }])
+        ? JSON.stringify([
+            { marketId: `0x${"ab".repeat(32)}`, expiresAt: "2029-01-01T00:00:00.000Z" },
+            { marketId: `0x${"cd".repeat(32)}`, expiresAt: "2031-01-01T00:00:00.000Z" },
+          ])
         : request.url === "/v1/trading/quotes"
           ? JSON.stringify({
               quoteId: "test",
@@ -70,6 +76,7 @@ test("production smoke supports separate application and gateway origins", async
   assert.ok(gatewayRequests.some((request) => request.startsWith("GET /v1/data/markets?")));
   assert.ok(gatewayRequests.includes("POST /v1/trading/quotes"));
   assert.ok(gatewayRequests.includes("POST /v1/trading/plans"));
+  assert.equal(quoteRequests[0].marketId, `0x${"cd".repeat(32)}`);
   assert.equal(planRequests[0].policy.quoteSourceBlock, "123456");
   assert.equal(planRequests[0].policy.quoteExpiresAt, "2030-01-01T00:00:00.000Z");
 });

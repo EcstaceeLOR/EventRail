@@ -12,6 +12,7 @@ const synchronizer = new MarketSynchronizer(
   createDreamDexAdapter({ network: "shannon" }),
   new PostgresDreamDexMarketGenerationRepository(database),
   new DreamDexEventBus(redis),
+  { historicalLimit: positiveInteger(process.env.MARKET_SYNC_HISTORICAL_LIMIT ?? "250") },
 );
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.once(signal, () => controller.abort());
@@ -32,6 +33,13 @@ function safeError(error: unknown) {
   return error instanceof Error
     ? { name: error.name, message: error.message }
     : { message: "Unknown failure" };
+}
+
+function positiveInteger(value: string): number {
+  const parsed = Number(value);
+  if (!/^[1-9][0-9]*$/.test(value) || !Number.isSafeInteger(parsed))
+    throw new Error("MARKET_SYNC_HISTORICAL_LIMIT must be a positive integer");
+  return parsed;
 }
 
 function delay(milliseconds: number, signal: AbortSignal): Promise<void> {

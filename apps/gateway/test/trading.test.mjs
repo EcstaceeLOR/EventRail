@@ -135,7 +135,18 @@ test("empty books return an actionable conflict instead of a fabricated quote", 
 });
 
 test("plan endpoint binds the account and current immutable market generation", async () => {
-  const quoteApp = createGateway({ dataReader: reader() });
+  const advancingReader = reader();
+  const getOrderBook = advancingReader.getOrderBook;
+  let sourceBlock = 92n;
+  advancingReader.getOrderBook = async (...args) => {
+    const book = await getOrderBook(...args);
+    sourceBlock += 8n;
+    return {
+      ...book,
+      freshness: { ...book.freshness, sourceBlock: sourceBlock.toString() },
+    };
+  };
+  const quoteApp = createGateway({ dataReader: advancingReader });
   const quoteResponse = await quoteApp.inject({
     method: "POST",
     url: "/v1/trading/quotes",
@@ -145,7 +156,7 @@ test("plan endpoint binds the account and current immutable market generation", 
   await quoteApp.close();
   let planned;
   const app = createGateway({
-    dataReader: reader(),
+    dataReader: advancingReader,
     tradePlanner: {
       create: async (input) => {
         planned = input;
@@ -173,6 +184,41 @@ test("plan endpoint binds the account and current immutable market generation", 
   assert.equal(planned.chainId, 50312);
   assert.equal(planned.account, account);
   assert.equal(planned.quote.marketId, marketId);
+  assert.equal(planned.quote.sourceBlock, "100");
+  await app.close();
+});
+
+test("plan endpoint rejects a quote when refreshed depth changes its executable terms", async () => {
+  const quoteApp = createGateway({ dataReader: reader() });
+  const quoteResponse = await quoteApp.inject({
+    method: "POST",
+    url: "/v1/trading/quotes",
+    payload: { marketId, outcome: "up", side: "buy", mode: "quantity", amount: "100000" },
+  });
+  const quote = quoteResponse.json();
+  await quoteApp.close();
+  const app = createGateway({
+    dataReader: reader([{ price: "700000", quantity: "10000000" }]),
+    tradePlanner: { create: async () => ({ accepted: true }) },
+  });
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/trading/plans",
+    payload: {
+      account,
+      idempotencyKey: "gateway-plan-changed-depth",
+      quote,
+      policy: {
+        maxSlippageBps: 100,
+        minimumFillBps: 10000,
+        minimumTimeRemainingSeconds: 30,
+        quoteSourceBlock: quote.sourceBlock,
+        quoteExpiresAt: quote.expiresAt,
+      },
+    },
+  });
+  assert.equal(response.statusCode, 409);
+  assert.equal(response.json().error.code, "STALE_BOOK");
   await app.close();
 });
 

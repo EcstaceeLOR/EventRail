@@ -39,7 +39,9 @@ services:
       - key: CORS_ALLOWED_ORIGINS
         value: https://eventrail.vercel.app
       - key: WORKER_INTERVAL_MS
-        value: "15000"
+        value: "30000"
+      - key: MARKET_SYNC_HISTORICAL_LIMIT
+        value: "50"
       # The free preview runs only the live market synchronizer. Receipt,
       # settlement, and webhook workers belong on separate production services.
       - key: DEMO_WORKERS
