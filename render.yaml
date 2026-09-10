@@ -42,10 +42,10 @@ services:
         value: "30000"
       - key: MARKET_SYNC_HISTORICAL_LIMIT
         value: "50"
-      # The free preview runs only the live market synchronizer. Receipt,
-      # settlement, and webhook workers belong on separate production services.
+      # Keep the public gateway isolated on Render's single-CPU free instance.
+      # Production runs synchronizers and settlement workers as separate services.
       - key: DEMO_WORKERS
-        value: market-sync
+        value: none
       - key: API_KEY_PEPPER
         generateValue: true
       - key: WEBHOOK_SIGNING_KEY
