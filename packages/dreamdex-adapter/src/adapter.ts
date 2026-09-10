@@ -752,7 +752,10 @@ function oracleEvidence(network: SomniaNetwork, market: BinaryMarket, indexed: M
     resolutionEvent?.txHash ?? indexed.closingAnswer?.txHash ?? indexed.openingAnswer?.txHash ?? null;
   return {
     marketId: market.marketId,
-    question: market.oracleQuestion,
+    // DreamDEX leaves oracleQuestion null on some older markets. The market's
+    // consumer-facing question is still authoritative evidence context and
+    // keeps the normalized contract stable for those positions.
+    question: market.oracleQuestion ?? market.question,
     closingQuestionId: indexed.closingAnswer?.oracleQuestionId ?? market.oracleQuestionId ?? null,
     openingQuestionId: indexed.reference?.oracleQuestionId ?? null,
     openingValue: indexed.openingAnswer?.numericValue ?? null,

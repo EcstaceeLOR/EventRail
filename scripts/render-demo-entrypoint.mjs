@@ -8,20 +8,49 @@ const migration = spawnSync(process.execPath, ["packages/database/scripts/migrat
 if (migration.error) throw migration.error;
 if (migration.status !== 0) process.exit(migration.status ?? 1);
 
-const components = [
-  ["gateway", "apps/gateway/dist/index.js", true],
+const gateway = ["gateway", "apps/gateway/dist/index.js", true];
+const backgroundComponents = [
   ["market-sync", "workers/market-sync/dist/runner.js", false],
   ["receipts", "workers/receipts/dist/runner.js", false],
   ["settlement", "workers/settlement/dist/runner.js", false],
   ["webhooks", "workers/webhooks/dist/runner.js", false],
 ];
+const requestedWorkers = new Set(
+  (process.env.DEMO_WORKERS ?? "market-sync")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
+const knownWorkers = new Set(backgroundComponents.map(([name]) => name));
+const unknownWorkers = [...requestedWorkers].filter((name) => !knownWorkers.has(name));
+if (unknownWorkers.length > 0) {
+  console.error("Unknown EventRail demo workers", { workers: unknownWorkers });
+  process.exit(64);
+}
+const enabledBackgroundComponents = backgroundComponents.filter(([name]) => requestedWorkers.has(name));
 
 const children = new Map();
 const restartTimers = new Map();
+const startupTimers = new Set();
 const restartDelayMs = 10_000;
+const backgroundStartDelayMs = 15_000;
+const backgroundStartStaggerMs = 5_000;
 let stopping = false;
 
-for (const component of components) launch(component);
+// Render's free instance has one small CPU. Starting five Node processes at
+// once can keep the public port closed until Render's port scan times out.
+// Give the critical HTTP gateway exclusive startup time, then stagger workers.
+launch(gateway);
+enabledBackgroundComponents.forEach((component, index) => {
+  const timer = setTimeout(
+    () => {
+      startupTimers.delete(timer);
+      launch(component);
+    },
+    backgroundStartDelayMs + index * backgroundStartStaggerMs,
+  );
+  startupTimers.add(timer);
+});
 
 function launch(component) {
   if (stopping) return;
@@ -51,6 +80,8 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 function stop(signal, exitCode) {
   if (stopping) return;
   stopping = true;
+  for (const timer of startupTimers) globalThis.clearTimeout(timer);
+  startupTimers.clear();
   for (const timer of restartTimers.values()) globalThis.clearTimeout(timer);
   restartTimers.clear();
   for (const child of children.values()) {
