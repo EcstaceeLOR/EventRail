@@ -68,7 +68,7 @@ export class EventRailClient {
   constructor(options: EventRailClientOptions) {
     this.#baseUrl = options.baseUrl.replace(/\/$/, "");
     this.#apiKey = options.apiKey;
-    this.#fetch = options.fetch ?? globalThis.fetch;
+    this.#fetch = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.#reconnectDelayMs = options.reconnectDelayMs ?? 2_000;
   }
 
