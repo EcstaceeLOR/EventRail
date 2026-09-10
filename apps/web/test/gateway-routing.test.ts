@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { defaultGatewayUpstream, selectBrowserGatewayUrl } from "../lib/gateway-routing.ts";
+import { selectBrowserGatewayUrl } from "../lib/gateway-routing.ts";
 import {
   gatewayRetryDelay,
   offlineRecoveryInterval,
@@ -11,9 +11,9 @@ import { EventRailApiError } from "@eventrail/api-client";
 test("browser traffic uses the configured gateway without an extra proxy hop", () => {
   assert.equal(
     selectBrowserGatewayUrl("https://eventrail-preview-gateway.onrender.com/"),
-    defaultGatewayUpstream,
+    "https://eventrail-preview-gateway.onrender.com",
   );
-  assert.equal(selectBrowserGatewayUrl(undefined), defaultGatewayUpstream);
+  assert.equal(selectBrowserGatewayUrl(undefined), "");
 });
 
 test("gateway queries recover from transient failures without retrying permanent client errors", () => {
