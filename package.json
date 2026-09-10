@@ -40,11 +40,11 @@
     "clean": "turbo run clean"
   },
   "devDependencies": {
-    "@axe-core/playwright": "4.10.2",
-    "@eslint/js": "9.39.5",
-    "@playwright/test": "1.55.1",
+    "@axe-core/playwright": "4.13.0",
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
     "@redocly/cli": "2.51.2",
-    "eslint": "9.39.5",
+    "eslint": "10.10.0",
     "lint-staged": "17.5.0",
     "prettier": "3.9.6",
     "simple-git-hooks": "2.14.0",
