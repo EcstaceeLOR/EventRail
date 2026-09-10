@@ -9,6 +9,7 @@ const commands = {
   receipts: ["pnpm", ["--filter", "@eventrail/receipts-worker", "start"]],
   settlement: ["pnpm", ["--filter", "@eventrail/settlement-worker", "start"]],
   webhooks: ["pnpm", ["--filter", "@eventrail/worker-webhooks", "start"]],
+  demo: ["node", ["scripts/render-demo-entrypoint.mjs"]],
   migrate: ["pnpm", ["db:migrate"]],
 };
 

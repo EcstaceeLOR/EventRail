@@ -4,7 +4,9 @@ EventRail is the non-custodial integration and trading layer for DreamDEX Event 
 
 **Live application:** [eventrail.vercel.app](https://eventrail.vercel.app)
 
-The hosted frontend currently uses Somnia Shannon. Backend-dependent trading, portfolio, and analytics features will become available after the preview GCP gateway is provisioned.
+The hosted frontend currently uses Somnia Shannon. Backend-dependent trading, portfolio, and analytics features become available when it is connected to a preview gateway.
+
+For a no-billing hackathon preview, the repository also includes a Render Blueprint that deploys the gateway, workers, PostgreSQL, and Redis-compatible Key Value service. Free Render services are for demonstration only and can sleep or expire according to Render's free-tier limits.
 
 ## Workspace
 
