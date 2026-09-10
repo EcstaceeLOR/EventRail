@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Isolated GitHub environment to promote
+        required: true
+        type: choice
+        options: [preview, staging, production]
+      image_sha:
+        description: Existing commit SHA to promote; defaults to this workflow commit
+        required: false
+        type: string
+
+concurrency:
+  group: deploy-${{ inputs.environment }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+
+jobs:
+  deploy:
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RELEASE_SHA: ${{ inputs.image_sha || github.sha }}
+      NAMESPACE: eventrail-${{ inputs.environment }}
+      RELEASE: eventrail-${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+        with: { ref: "${{ env.RELEASE_SHA }}" }
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - uses: google-github-actions/get-gke-credentials@3da1e46a907576cefaa90c484278bb5b259dd395 # v3
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER_NAME }}
+          location: ${{ vars.GCP_REGION }}
+          project_id: ${{ vars.GCP_PROJECT_ID }}
+      - name: Build immutable image if absent
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPOSITORY }}/eventrail
+        run: |
+          gcloud auth configure-docker "${{ vars.GCP_REGION }}-docker.pkg.dev" --quiet
+          if ! gcloud artifacts docker images describe "$IMAGE:$RELEASE_SHA" >/dev/null 2>&1; then
+            docker build --build-arg RELEASE_VERSION="$RELEASE_SHA" -t "$IMAGE:$RELEASE_SHA" .
+            docker push "$IMAGE:$RELEASE_SHA"
+          fi
+      - name: Materialize environment-scoped runtime secret
+        env:
+          RUNTIME_SECRET_ID: ${{ vars.RUNTIME_SECRET_ID }}
+        run: |
+          runtime_json="$(mktemp)"
+          trap 'rm -f "$runtime_json"' EXIT
+          chmod 600 "$runtime_json"
+          gcloud secrets versions access latest --secret "$RUNTIME_SECRET_ID" --out-file="$runtime_json"
+          kubectl create namespace "$NAMESPACE" --dry-run=client -o yaml | kubectl apply -f -
+          jq --arg name "eventrail-${{ inputs.environment }}-runtime" --arg namespace "$NAMESPACE" \
+            '{apiVersion:"v1",kind:"Secret",metadata:{name:$name,namespace:$namespace},type:"Opaque",data:with_entries(.value |= @base64)}' \
+            "$runtime_json" | kubectl apply -f -
+      - name: Promote with zero-downtime rollback
+        id: promote
+        env:
+          IMAGE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPOSITORY }}/eventrail
+        run: |
+          helm upgrade --install "$RELEASE" deploy/helm/eventrail --namespace "$NAMESPACE" \
+            --values "deploy/helm/eventrail/values-${{ inputs.environment }}.yaml" \
+            --set-string image.repository="$IMAGE" --set-string image.tag="$RELEASE_SHA" \
+            --set-string releaseVersion="$RELEASE_SHA" \
+            --set-string ingress.hosts.app="${{ vars.APP_HOST }}" \
+            --set-string ingress.hosts.api="${{ vars.API_HOST }}" \
+            --set-string ingress.hosts.docs="${{ vars.DOCS_HOST }}" \
+            --set-string ingress.hosts.examples="${{ vars.EXAMPLES_HOST }}" \
+            --set-string ingress.hosts.status="${{ vars.STATUS_HOST }}" \
+            --set-string config.corsAllowedOrigins="https://${{ vars.APP_HOST }},https://${{ vars.DOCS_HOST }},https://${{ vars.EXAMPLES_HOST }}" \
+            --atomic --timeout 10m --history-max 10
+          kubectl -n "$NAMESPACE" rollout status deployment --all --timeout=5m
+      - name: Environment contract smoke test
+        env:
+          SMOKE_BASE_URL: ${{ vars.APP_URL }}
+          SMOKE_DOCS_URL: ${{ vars.DOCS_URL }}
+          SMOKE_EXAMPLES_URL: ${{ vars.EXAMPLES_URL }}
+          SMOKE_STATUS_URL: ${{ vars.STATUS_URL }}
+          SMOKE_ACCOUNT: ${{ vars.SMOKE_ACCOUNT }}
+          SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
+          SMOKE_PLAN: "true"
+        run: node scripts/production-smoke.mjs
+      - name: Capture rollback evidence
+        if: failure()
+        run: |
+          helm -n "$NAMESPACE" history "$RELEASE" || true
+          kubectl -n "$NAMESPACE" get deploy,pod,event -o wide || true
+          echo "Atomic promotion restored the last healthy revision when the release failed." >> "$GITHUB_STEP_SUMMARY"

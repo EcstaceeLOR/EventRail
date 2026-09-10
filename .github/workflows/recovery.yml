@@ -1,0 +1,25 @@
+name: Recovery drill
+
+on:
+  schedule: [{ cron: "43 3 1 * *" }]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore:
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - name: Restore backup into isolated drill database
+        env:
+          RESTORE_SOURCE_DATABASE_URL: ${{ secrets.RESTORE_SOURCE_DATABASE_URL }}
+          RESTORE_TARGET_DATABASE_URL: ${{ secrets.RESTORE_TARGET_DATABASE_URL }}
+          ALLOW_REMOTE_RESTORE_DRILL: "true"
+        run: node scripts/restore-drill.mjs | tee restore-evidence.json
+      - if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with: { name: "restore-${{ github.run_id }}", path: restore-evidence.json, retention-days: 90 }

@@ -1,0 +1,85 @@
+{{- if .Values.ingress.enabled }}
+{{- if .Values.ingress.managedCertificate }}
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: {{ include "eventrail.fullname" . }}-certificate
+spec:
+  domains:
+    {{- range $host := .Values.ingress.hosts }}
+    - {{ $host }}
+    {{- end }}
+---
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: {{ include "eventrail.fullname" . }}-frontend
+spec:
+  redirectToHttps: { enabled: true, responseCodeName: MOVED_PERMANENTLY_DEFAULT }
+---
+{{- end }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "eventrail.fullname" . }}
+  labels:
+    {{- include "eventrail.labels" . | nindent 4 }}
+  annotations:
+    kubernetes.io/ingress.class: {{ .Values.ingress.className | quote }}
+    {{- if .Values.ingress.managedCertificate }}
+    networking.gke.io/managed-certificates: {{ printf "%s-certificate" (include "eventrail.fullname" .) | quote }}
+    networking.gke.io/v1beta1.FrontendConfig: {{ printf "%s-frontend" (include "eventrail.fullname" .) | quote }}
+    {{- end }}
+spec:
+  {{- if not (eq .Values.ingress.className "gce") }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- if not .Values.ingress.managedCertificate }}
+  tls:
+    - secretName: {{ .Values.ingress.tlsSecretName }}
+      hosts:
+        {{- range $host := .Values.ingress.hosts }}
+        - {{ $host }}
+        {{- end }}
+  {{- end }}
+  rules:
+    - host: {{ .Values.ingress.hosts.app }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-gateway, port: { name: http } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-web, port: { name: http } } }
+    - host: {{ .Values.ingress.hosts.api }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-gateway, port: { name: http } } }
+    - host: {{ .Values.ingress.hosts.docs }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-developer-portal, port: { name: http } } }
+    - host: {{ .Values.ingress.hosts.examples }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-gateway, port: { name: http } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-examples, port: { name: http } } }
+    - host: {{ .Values.ingress.hosts.status }}
+      http:
+        paths:
+          - path: /v1
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-gateway, port: { name: http } } }
+          - path: /
+            pathType: Prefix
+            backend: { service: { name: {{ include "eventrail.fullname" . }}-web, port: { name: http } } }
+{{- end }}

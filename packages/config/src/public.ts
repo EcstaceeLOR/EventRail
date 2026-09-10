@@ -6,7 +6,7 @@ const emptyToUndefined = (value: unknown) => (value === "" ? undefined : value);
 export const PublicEnvironmentSchema = z.object({
   NEXT_PUBLIC_SOMNIA_CHAIN_ID: z.coerce.number().int().positive().default(SOMNIA_NETWORKS.shannon.chainId),
   NEXT_PUBLIC_SOMNIA_RPC_URL: z.preprocess(emptyToUndefined, z.url().default(SOMNIA_NETWORKS.shannon.rpcUrl)),
-  NEXT_PUBLIC_GATEWAY_URL: z.preprocess(emptyToUndefined, z.url().default("http://localhost:4000")),
+  NEXT_PUBLIC_GATEWAY_URL: z.union([z.literal(""), z.url()]).default(""),
   NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: z.preprocess(emptyToUndefined, z.string().min(1).optional()),
 });
 

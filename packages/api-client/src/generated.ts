@@ -2,6 +2,7 @@
 export type EventRailApiPath =
   | "/metrics"
   | "/v1/health"
+  | "/v1/ready"
   | "/v1/markets"
   | "/v1/data/series"
   | "/v1/data/markets"

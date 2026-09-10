@@ -16,22 +16,38 @@ import {
 } from "@eventrail/database";
 import { TradePlanner } from "@eventrail/trading";
 import { ApiAccessService, OperationalMonitor } from "@eventrail/platform";
+import { createPublicClient, http } from "viem";
 
 const config = loadServerEnvironment(process.env);
 const { listen } = describeServerEnvironment(config);
 
-const redis = await connectEventRailRedis(config.REDIS_URL);
+const redis = await connectEventRailRedis(config.REDIS_URL, config.REDIS_CA_CERT);
 const database = createDatabasePool(config.DATABASE_URL);
 const executions = new PostgresTradeExecutionRepository(database);
 const integrators = new PostgresIntegratorRepository(database);
 const registry = getDreamDexRegistry("shannon");
-const monitor = new OperationalMonitor();
+const monitor = new OperationalMonitor(config.RELEASE_VERSION);
 monitor.set("planning_enabled", config.TRANSACTION_PLANNING_ENABLED ? 1 : 0);
+const chain = createPublicClient({ transport: http(config.SOMNIA_RPC_URL) });
 const binaryModule = registry.addresses.binaryModule;
 if (!binaryModule) throw new Error("DreamDEX binary module is not configured");
 const app = createGateway({
   monitor,
   planningEnabled: config.TRANSACTION_PLANNING_ENABLED,
+  allowedOrigins: config.CORS_ALLOWED_ORIGINS,
+  readiness: async () => {
+    const [postgres, redisReady, rpc] = await Promise.allSettled([
+      database.query("SELECT 1"),
+      redis.ping(),
+      chain.getBlockNumber(),
+    ]);
+    monitor.set("stream_connected", redisReady.status === "fulfilled" ? 1 : 0);
+    return {
+      postgres: postgres.status === "fulfilled",
+      redis: redisReady.status === "fulfilled",
+      rpc: rpc.status === "fulfilled",
+    };
+  },
   apiAccess: new ApiAccessService(integrators, config.API_KEY_PEPPER),
   apiAuthRequired: config.API_AUTH_REQUIRED,
   apiEnvironment: config.APP_ENV === "production" ? "live" : "test",

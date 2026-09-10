@@ -1,0 +1,4 @@
+EventRail {{ .Values.releaseVersion }} is deployed to {{ .Values.environment }}.
+App: https://{{ .Values.ingress.hosts.app }}
+API health: https://{{ .Values.ingress.hosts.api }}/v1/health
+Status: https://{{ .Values.ingress.hosts.status }}/status
