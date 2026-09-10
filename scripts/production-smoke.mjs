@@ -54,7 +54,13 @@ if (market?.marketId) {
       account,
       idempotencyKey: `smoke-${Date.now()}`,
       quote,
-      policy: { maxSlippageBps: 200, minimumFillBps: 1, minimumTimeRemainingSeconds: 0 },
+      policy: {
+        maxSlippageBps: 200,
+        minimumFillBps: 1,
+        minimumTimeRemainingSeconds: 0,
+        quoteSourceBlock: quote.sourceBlock,
+        quoteExpiresAt: quote.expiresAt,
+      },
       builderFeeApproved: false,
     });
 } else results.push(["quote/plan", "FAIL", "no active market"]);

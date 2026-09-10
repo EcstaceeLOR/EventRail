@@ -9,6 +9,7 @@ const smokeScript = fileURLToPath(new URL("../production-smoke.mjs", import.meta
 test("production smoke supports separate application and gateway origins", async (context) => {
   const applicationRequests = [];
   const gatewayRequests = [];
+  const planRequests = [];
   const application = createServer((request, response) => {
     applicationRequests.push(request.url);
     response.writeHead(200, {
@@ -18,7 +19,7 @@ test("production smoke supports separate application and gateway origins", async
     });
     response.end("EventRail");
   });
-  const gateway = createServer((request, response) => {
+  const gateway = createServer(async (request, response) => {
     gatewayRequests.push(`${request.method} ${request.url}`);
     if (request.method === "OPTIONS") {
       response.writeHead(403).end();
@@ -29,12 +30,22 @@ test("production smoke supports separate application and gateway origins", async
       response.end(": connected\n\n");
       return;
     }
+    if (request.url === "/v1/trading/plans") {
+      let body = "";
+      request.setEncoding("utf8");
+      for await (const chunk of request) body += chunk;
+      planRequests.push(JSON.parse(body));
+    }
     response.writeHead(200, { "content-type": "application/json" });
     response.end(
       request.url?.startsWith("/v1/data/markets?")
         ? JSON.stringify([{ marketId: `0x${"ab".repeat(32)}` }])
         : request.url === "/v1/trading/quotes"
-          ? JSON.stringify({ quoteId: "test" })
+          ? JSON.stringify({
+              quoteId: "test",
+              sourceBlock: "123456",
+              expiresAt: "2030-01-01T00:00:00.000Z",
+            })
           : request.url?.includes("/positions") || request.url?.includes("/claims")
             ? "[]"
             : JSON.stringify({ status: "ok" }),
@@ -49,7 +60,7 @@ test("production smoke supports separate application and gateway origins", async
     SMOKE_ALLOW_HTTP: "true",
     SMOKE_BASE_URL: applicationUrl,
     SMOKE_GATEWAY_URL: gatewayUrl,
-    SMOKE_PLAN: "false",
+    SMOKE_PLAN: "true",
   });
 
   assert.equal(result.code, 0, result.stderr || result.stdout);
@@ -58,6 +69,9 @@ test("production smoke supports separate application and gateway origins", async
   assert.ok(gatewayRequests.includes("GET /v1/ready"));
   assert.ok(gatewayRequests.some((request) => request.startsWith("GET /v1/data/markets?")));
   assert.ok(gatewayRequests.includes("POST /v1/trading/quotes"));
+  assert.ok(gatewayRequests.includes("POST /v1/trading/plans"));
+  assert.equal(planRequests[0].policy.quoteSourceBlock, "123456");
+  assert.equal(planRequests[0].policy.quoteExpiresAt, "2030-01-01T00:00:00.000Z");
 });
 
 function listen(server) {
