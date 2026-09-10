@@ -845,12 +845,17 @@ export function createGateway(options: GatewayOptions = {}) {
     const cursor = Array.isArray(headerCursor) ? headerCursor[0] : headerCursor;
     const controller = new AbortController();
     request.raw.once("close", () => controller.abort());
+    const origin = request.headers.origin;
+    const streamCorsHeaders = origin && options.allowedOrigins?.includes(origin) ? corsHeaders(origin) : {};
     reply.hijack();
     reply.raw.writeHead(200, {
       "Content-Type": "text/event-stream; charset=utf-8",
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer",
+      ...streamCorsHeaders,
     });
     reply.raw.write("retry: 2000\n\n");
     const heartbeat = setInterval(() => reply.raw.write(": heartbeat\n\n"), options.heartbeatMs ?? 15_000);
