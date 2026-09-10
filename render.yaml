@@ -6,7 +6,7 @@ services:
     region: frankfurt
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /v1/ready
+    healthCheckPath: /v1/health
     autoDeployTrigger: checksPass
     envVars:
       - key: COMPONENT
