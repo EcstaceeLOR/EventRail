@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { FinalizedMarketScanner } from "../dist/index.js";
+import { FinalizedMarketScanner, runClaimScannerOnSchedule } from "../dist/index.js";
 
 const account = `0x${"11".repeat(20)}`;
 const address = `0x${"22".repeat(20)}`;
@@ -152,4 +152,24 @@ test("an interrupted page is safely replayed and the checkpoint advances only af
   const resumed = await scanner.runOnce();
   assert.equal(resumed.completed, true);
   assert.equal(persistence.candidates.size, 1, "replayed candidates stay idempotent");
+});
+
+test("the scheduled scanner survives a transient upstream failure", async () => {
+  const controller = new globalThis.AbortController();
+  const failure = new Error("RPC temporarily unavailable");
+  const errors = [];
+  let attempts = 0;
+  const scanner = {
+    async runOnce() {
+      attempts += 1;
+      if (attempts === 1) throw failure;
+      controller.abort();
+      return { markets: 0, candidates: 0, completed: true };
+    },
+  };
+
+  await runClaimScannerOnSchedule(scanner, 1, controller.signal, (error) => errors.push(error));
+
+  assert.equal(attempts, 2);
+  assert.deepEqual(errors, [failure]);
 });
