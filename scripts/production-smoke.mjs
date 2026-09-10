@@ -1,12 +1,15 @@
 import process from "node:process";
 
-const baseUrl = requiredUrl("SMOKE_BASE_URL");
+const applicationUrl = requiredUrl("SMOKE_BASE_URL");
+const gatewayUrl = process.env.SMOKE_GATEWAY_URL ? requiredUrl("SMOKE_GATEWAY_URL") : applicationUrl;
 const account = process.env.SMOKE_ACCOUNT ?? "0x0000000000000000000000000000000000000001";
 const apiKey = process.env.SMOKE_API_KEY;
 const authHeaders = apiKey ? { authorization: `Bearer ${apiKey}` } : {};
 const results = [];
 
-await check("application", baseUrl, { headers: ["content-security-policy", "x-content-type-options"] });
+await check("application", applicationUrl, {
+  headers: ["content-security-policy", "x-content-type-options"],
+});
 for (const [name, variable] of [
   ["developer portal", "SMOKE_DOCS_URL"],
   ["examples", "SMOKE_EXAMPLES_URL"],
@@ -15,20 +18,24 @@ for (const [name, variable] of [
   if (process.env[variable])
     await check(name, requiredUrl(variable), { headers: ["content-security-policy"] });
 }
-await check("health", new URL("/v1/health", baseUrl), { json: true });
-await check("readiness", new URL("/v1/ready", baseUrl), { json: true });
-await checkDeniedOrigin(new URL("/v1/data/markets", baseUrl));
+await warmGateway();
+await check("health", new URL("/v1/health", gatewayUrl), { json: true });
+await check("readiness", new URL("/v1/ready", gatewayUrl), { json: true });
+await checkDeniedOrigin(new URL("/v1/data/markets", gatewayUrl));
 const markets = await check(
   "markets",
-  new URL("/v1/data/markets?network=shannon&status=active&limit=5", baseUrl),
+  new URL("/v1/data/markets?network=shannon&status=active&limit=5", gatewayUrl),
   { json: true, auth: true },
 );
-await check("portfolio", new URL(`/v1/data/accounts/${account}/positions`, baseUrl), {
+await check("portfolio", new URL(`/v1/data/accounts/${account}/positions`, gatewayUrl), {
   json: true,
   auth: true,
 });
-await check("claims", new URL(`/v1/data/accounts/${account}/claims`, baseUrl), { json: true, auth: true });
-await checkStream(new URL("/v1/events?network=shannon", baseUrl));
+await check("claims", new URL(`/v1/data/accounts/${account}/claims`, gatewayUrl), {
+  json: true,
+  auth: true,
+});
+await checkStream(new URL("/v1/events?network=shannon", gatewayUrl));
 const market = Array.isArray(markets) ? markets[0] : markets?.data?.[0];
 if (market?.marketId) {
   const quote = await post("quote", "/v1/trading/quotes", {
@@ -71,9 +78,33 @@ async function check(name, url, options = {}) {
     return null;
   }
 }
+async function warmGateway() {
+  const timeoutMs = Number(process.env.SMOKE_WARMUP_TIMEOUT_MS ?? 90_000);
+  if (!Number.isInteger(timeoutMs) || timeoutMs < 1_000) {
+    throw new Error("SMOKE_WARMUP_TIMEOUT_MS must be an integer of at least 1000");
+  }
+  const deadline = Date.now() + timeoutMs;
+  let detail;
+  do {
+    try {
+      const response = await fetch(new URL("/v1/ready", gatewayUrl), {
+        signal: AbortSignal.timeout(Math.min(15_000, timeoutMs)),
+      });
+      detail = `HTTP ${response.status}`;
+      if (response.ok) {
+        results.push(["gateway warm-up", "PASS", detail]);
+        return;
+      }
+    } catch (error) {
+      detail = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3_000));
+  } while (Date.now() < deadline);
+  results.push(["gateway warm-up", "FAIL", detail ?? "gateway did not respond"]);
+}
 async function post(name, path, body) {
   try {
-    const response = await fetch(new URL(path, baseUrl), {
+    const response = await fetch(new URL(path, gatewayUrl), {
       method: "POST",
       headers: { "content-type": "application/json", ...authHeaders },
       body: JSON.stringify(body),

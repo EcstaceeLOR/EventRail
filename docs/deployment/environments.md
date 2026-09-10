@@ -16,7 +16,7 @@ EventRail uses the same immutable OCI image in three isolated GCP projects. Prev
 | `GKE_CLUSTER_NAME`, `ARTIFACT_REPOSITORY`, `RUNTIME_SECRET_ID`      | Terraform outputs                                         |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER`, `GCP_DEPLOY_SERVICE_ACCOUNT`      | Terraform outputs, stored as environment secrets          |
 | `APP_HOST`, `API_HOST`, `DOCS_HOST`, `EXAMPLES_HOST`, `STATUS_HOST` | DNS names without `https://`                              |
-| `APP_URL`, `DOCS_URL`, `EXAMPLES_URL`, `STATUS_URL`                 | Public HTTPS URLs                                         |
+| `APP_URL`, `GATEWAY_URL`, `DOCS_URL`, `EXAMPLES_URL`, `STATUS_URL`  | Public HTTPS URLs                                         |
 | `SMOKE_ACCOUNT`                                                     | Read-only test wallet address                             |
 | `SMOKE_API_KEY`                                                     | Dedicated, rate-limited production test credential        |
 | `RESTORE_SOURCE_DATABASE_URL`, `RESTORE_TARGET_DATABASE_URL`        | Staging-only drill users; target ends in `_restore_drill` |

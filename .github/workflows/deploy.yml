@@ -84,6 +84,7 @@ jobs:
       - name: Environment contract smoke test
         env:
           SMOKE_BASE_URL: ${{ vars.APP_URL }}
+          SMOKE_GATEWAY_URL: ${{ vars.GATEWAY_URL }}
           SMOKE_DOCS_URL: ${{ vars.DOCS_URL }}
           SMOKE_EXAMPLES_URL: ${{ vars.EXAMPLES_URL }}
           SMOKE_STATUS_URL: ${{ vars.STATUS_URL }}
