@@ -15,8 +15,9 @@ const backgroundComponents = [
   ["settlement", "workers/settlement/dist/runner.js", false],
   ["webhooks", "workers/webhooks/dist/runner.js", false],
 ];
+const configuredWorkers = process.env.DEMO_WORKERS ?? "market-sync";
 const requestedWorkers = new Set(
-  (process.env.DEMO_WORKERS ?? "market-sync")
+  (configuredWorkers === "none" ? "" : configuredWorkers)
     .split(",")
     .map((name) => name.trim())
     .filter(Boolean),
