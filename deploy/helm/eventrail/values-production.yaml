@@ -1,0 +1,13 @@
+environment: production
+runtimeSecretName: eventrail-production-runtime
+config:
+  apiAuthRequired: "false"
+  transactionPlanningEnabled: "true"
+ingress:
+  hosts:
+    app: app.eventrail.example
+    api: api.eventrail.example
+    docs: docs.eventrail.example
+    examples: examples.eventrail.example
+    status: status.eventrail.example
+  tlsSecretName: eventrail-production-tls

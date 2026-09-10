@@ -1,0 +1,28 @@
+{{- range $name, $component := .Values.components }}
+{{- if $component.public }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "eventrail.fullname" $ }}-{{ $name }}
+  {{- if $.Values.ingress.managedCertificate }}
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+    {{- if eq $name "gateway" }}
+    cloud.google.com/backend-config: '{"default": "{{ include "eventrail.fullname" $ }}-gateway"}'
+    {{- end }}
+  {{- end }}
+  labels:
+    {{- include "eventrail.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $name }}
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/instance: {{ $.Release.Name }}
+    app.kubernetes.io/component: {{ $name }}
+  ports:
+    - name: http
+      port: {{ $component.port }}
+      targetPort: http
+{{- end }}
+{{- end }}

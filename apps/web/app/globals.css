@@ -1645,6 +1645,28 @@ pre b {
   color: var(--warning);
 }
 
+.incident-history {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+
+.incident-history article {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+
+.incident-history time {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 @media (max-width: 720px) {
   .risk-notice {
     grid-template-columns: 1fr;

@@ -1,0 +1,33 @@
+name: Infrastructure validation
+
+on:
+  pull_request:
+    paths:
+      [
+        "Dockerfile",
+        "deploy/**",
+        "infra/**",
+        "scripts/deployment-policy.mjs",
+        "scripts/validate-deployment.mjs",
+      ]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+      - run: terraform -chdir=infra/terraform/gcp fmt -check
+      - run: terraform -chdir=infra/terraform/gcp init -backend=false
+      - run: terraform -chdir=infra/terraform/gcp validate
+      - run: helm lint deploy/helm/eventrail --values deploy/helm/eventrail/values-preview.yaml
+      - run: helm lint deploy/helm/eventrail --values deploy/helm/eventrail/values-staging.yaml
+      - run: helm lint deploy/helm/eventrail --values deploy/helm/eventrail/values-production.yaml
+      - run: node scripts/validate-deployment.mjs
+      - name: Confirm frontend manifests contain no runtime secret
+        run: |
+          helm template eventrail deploy/helm/eventrail -f deploy/helm/eventrail/values-preview.yaml > rendered.yaml
+          node scripts/validate-rendered-deployment.mjs rendered.yaml

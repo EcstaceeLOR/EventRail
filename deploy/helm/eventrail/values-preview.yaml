@@ -1,0 +1,10 @@
+environment: preview
+runtimeSecretName: eventrail-preview-runtime
+ingress:
+  hosts:
+    app: preview.eventrail.example
+    api: api-preview.eventrail.example
+    docs: docs-preview.eventrail.example
+    examples: examples-preview.eventrail.example
+    status: status-preview.eventrail.example
+  tlsSecretName: eventrail-preview-tls
