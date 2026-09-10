@@ -8,7 +8,6 @@ services:
     dockerContext: .
     healthCheckPath: /v1/ready
     autoDeployTrigger: checksPass
-    maxShutdownDelaySeconds: 30
     envVars:
       - key: COMPONENT
         value: demo
