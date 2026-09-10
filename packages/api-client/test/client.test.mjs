@@ -71,6 +71,22 @@ test("invalid API payloads fail with a protocol error", async () => {
   await assert.rejects(client.getMarket(marketId), EventRailProtocolError);
 });
 
+test("default browser fetch keeps its required global receiver", async () => {
+  const originalFetch = globalThis.fetch;
+  let receivedGlobal = false;
+  globalThis.fetch = function () {
+    receivedGlobal = this === globalThis;
+    return Promise.resolve(globalThis.Response.json([]));
+  };
+  try {
+    const client = new EventRailClient({ baseUrl: "/gateway" });
+    assert.deepEqual(await client.listMarkets(), []);
+    assert.equal(receivedGlobal, true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("SSE client parses chunk boundaries and reconnects with its last cursor", async () => {
   const controller = new globalThis.AbortController();
   const requestedCursors = [];
