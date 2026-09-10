@@ -25,6 +25,24 @@ jobs:
           SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
           SMOKE_PLAN: "true"
         run: node scripts/production-smoke.mjs
+      - name: Resolve recovered smoke incidents
+        if: success()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --label incident \
+            --state open \
+            --search '"Production smoke test failure" in:title' \
+            --json number \
+            --jq '.[].number' |
+          while read -r issue_number; do
+            test -n "$issue_number" || continue
+            gh issue comment "$issue_number" \
+              --repo "$GITHUB_REPOSITORY" \
+              --body "Resolved automatically after production checks recovered in [run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID)."
+            gh issue close "$issue_number" --repo "$GITHUB_REPOSITORY" --reason completed
+          done
       - name: Open public incident on failure
         if: failure()
         env: { GH_TOKEN: "${{ github.token }}" }
