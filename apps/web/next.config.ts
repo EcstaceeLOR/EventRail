@@ -41,7 +41,7 @@ function csp() {
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: https:",
     "font-src 'self' data:",
-    "connect-src 'self' https://api.github.com https://*.somnia.network wss://*.somnia.network https://*.somnia.host wss://*.walletconnect.com https://*.walletconnect.com",
+    "connect-src 'self' https://api.github.com https://*.onrender.com https://*.somnia.network wss://*.somnia.network https://*.somnia.host wss://*.walletconnect.com https://*.walletconnect.com",
     "upgrade-insecure-requests",
   ].join("; ");
 }
