@@ -97,12 +97,18 @@ export class FinalizedMarketScanner {
 }
 
 export async function runClaimScannerOnSchedule(
-  scanner: FinalizedMarketScanner,
+  scanner: Pick<FinalizedMarketScanner, "runOnce">,
   intervalMilliseconds: number,
   signal: AbortSignal,
+  onError: (error: unknown) => void = (error) =>
+    console.error("Settlement claim scan failed", safeError(error)),
 ): Promise<void> {
   while (!signal.aborted) {
-    await scanner.runOnce(signal);
+    try {
+      await scanner.runOnce(signal);
+    } catch (error) {
+      if (!signal.aborted) onError(error);
+    }
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, intervalMilliseconds);
       signal.addEventListener(
@@ -115,6 +121,12 @@ export async function runClaimScannerOnSchedule(
       );
     });
   }
+}
+
+function safeError(error: unknown) {
+  return error instanceof Error
+    ? { name: error.name, message: error.message }
+    : { message: "Unknown failure" };
 }
 
 function payout(market: NormalizedMarket, outcome: "up" | "down", amount: bigint) {
