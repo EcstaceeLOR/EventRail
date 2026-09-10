@@ -79,7 +79,10 @@ export class DreamDexEventBus {
   }
 
   async *subscribe(options: EventSubscriptionOptions): AsyncGenerator<EventBusRecord> {
-    let cursor = options.cursor ?? "0-0";
+    // A browser opening the stream for the first time only needs events that
+    // arrive after it connects. Explicit cursors still replay missed events
+    // during reconnect recovery.
+    let cursor = options.cursor ?? "$";
     while (!options.signal?.aborted) {
       const records = await this.readBatch(options.network, cursor, {
         ...(options.blockMs === undefined ? {} : { blockMs: options.blockMs }),
