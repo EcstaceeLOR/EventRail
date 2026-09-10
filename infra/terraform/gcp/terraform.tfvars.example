@@ -1,0 +1,9 @@
+project_id          = "eventrail-staging-project"
+environment         = "staging"
+region              = "europe-west1"
+deletion_protection = true
+
+labels = {
+  owner       = "eventrail-platform"
+  cost_center = "hackathon"
+}

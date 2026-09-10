@@ -68,6 +68,19 @@ test("critical accessibility rules pass on trading and legal surfaces", async ({
   }
 });
 
+test("primary internal links resolve without browser errors", async ({ page }) => {
+  await page.goto("/");
+  const hrefs = await page
+    .locator('a[href^="/"]')
+    .evaluateAll((links) => [
+      ...new Set(links.map((link) => (link as HTMLAnchorElement).getAttribute("href")).filter(Boolean)),
+    ]);
+  for (const href of hrefs) {
+    const response = await page.goto(href!);
+    expect(response?.status(), href!).toBeLessThan(400);
+  }
+});
+
 test("mobile navigation fits the viewport and honors reduced motion", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only budget.");
   await page.emulateMedia({ reducedMotion: "reduce" });

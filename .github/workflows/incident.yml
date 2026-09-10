@@ -1,0 +1,31 @@
+name: Public incident
+
+on:
+  workflow_dispatch:
+    inputs:
+      state: { description: Incident state, required: true, type: choice, options: [investigating, resolved] }
+      title: { description: Customer-facing incident title, required: true, type: string }
+      issue_number: { description: Existing issue number when resolving, required: false, type: string }
+
+permissions:
+  issues: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish incident state
+        env:
+          GH_TOKEN: "${{ github.token }}"
+          INCIDENT_STATE: "${{ inputs.state }}"
+          INCIDENT_TITLE: "${{ inputs.title }}"
+          INCIDENT_ISSUE: "${{ inputs.issue_number }}"
+        run: |
+          gh label create incident --repo "$GITHUB_REPOSITORY" --color B60205 --description "Public service incident" --force
+          if [[ "$INCIDENT_STATE" == "investigating" ]]; then
+            gh issue create --repo "$GITHUB_REPOSITORY" --label incident --title "$INCIDENT_TITLE" --body "We are investigating. Updates will be posted here."
+          else
+            test -n "$INCIDENT_ISSUE"
+            gh issue comment "$INCIDENT_ISSUE" --repo "$GITHUB_REPOSITORY" --body "Resolved: $INCIDENT_TITLE"
+            gh issue close "$INCIDENT_ISSUE" --repo "$GITHUB_REPOSITORY" --reason completed
+          fi

@@ -1,7 +1,21 @@
 {
   "name": "@eventrail/react",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EcstaceeLOR/EventRail.git",
+    "directory": "packages/react"
+  },
   "sideEffects": [
     "./src/styles.css"
   ],
@@ -32,7 +46,7 @@
   },
   "devDependencies": {
     "@types/react": "19.2.18",
-    "@types/react-dom": "19.2.3",
+    "@types/react-dom": "19.2.7",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "typescript": "6.0.3"

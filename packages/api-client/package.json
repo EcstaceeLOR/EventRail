@@ -1,7 +1,20 @@
 {
   "name": "@eventrail/api-client",
   "version": "0.1.0",
-  "private": true,
+  "private": false,
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/EcstaceeLOR/EventRail.git",
+    "directory": "packages/api-client"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

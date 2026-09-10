@@ -13,6 +13,7 @@ EventRail is the non-custodial integration and trading layer for DreamDEX Event 
 | `packages/*`            | Core domain, API client, React SDK, DreamDEX adapter, data, and shared types |
 | `workers/*`             | Market synchronization, receipt reconciliation, and settlement detection     |
 | `openapi`               | Versioned public API contract                                                |
+| `deploy` / `infra`      | Helm release topology and isolated GCP infrastructure                        |
 
 ## Development
 
@@ -49,5 +50,7 @@ Copy `.env.example` to `.env.local` when network integration begins. Never commi
 - [System-boundary ADR](docs/architecture/adr-0001-system-boundaries.md) and [v1 contract policy](docs/architecture/api-and-events-v1.md)
 - [DreamDEX Shannon integration spike](docs/spikes/dreamdex-shannon.md)
 - [Contributing](CONTRIBUTING.md), [security](SECURITY.md), and [support](SUPPORT.md)
+- [Environment provisioning](docs/deployment/environments.md), [release and recovery](docs/deployment/release-and-recovery.md), and [launch checklist](docs/launch/checklist.md)
+- [Demo runbook](docs/launch/demo.md) and [post-launch operating loop](docs/product/post-launch.md)
 
 EventRail is licensed under the [MIT License](LICENSE).

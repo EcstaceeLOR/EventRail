@@ -45,6 +45,8 @@ export function structuredEvent(
 }
 
 export class OperationalMonitor {
+  constructor(private readonly version = "0.1.0") {}
+
   readonly #metrics = new Map<OperationalMetric, number>([
     ["rpc_lag_blocks", 0],
     ["cache_age_seconds", 0],
@@ -101,7 +103,7 @@ export class OperationalMonitor {
     return {
       status: alerts.some((alert) => alert.severity === "critical") ? ("degraded" as const) : ("ok" as const),
       service: "eventrail-gateway",
-      version: "0.1.0",
+      version: this.version,
       timestamp: now.toISOString(),
       planningEnabled: metrics.planning_enabled === 1,
       metrics,

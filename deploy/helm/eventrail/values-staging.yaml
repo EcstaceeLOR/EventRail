@@ -1,0 +1,10 @@
+environment: staging
+runtimeSecretName: eventrail-staging-runtime
+ingress:
+  hosts:
+    app: staging.eventrail.example
+    api: api-staging.eventrail.example
+    docs: docs-staging.eventrail.example
+    examples: examples-staging.eventrail.example
+    status: status-staging.eventrail.example
+  tlsSecretName: eventrail-staging-tls

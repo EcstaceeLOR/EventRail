@@ -6,13 +6,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "node --watch dist/index.js",
+    "start": "node dist/runner.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@eventrail/config": "workspace:*",
     "@eventrail/database": "workspace:*",
     "@eventrail/dreamdex-adapter": "workspace:*",
+    "@eventrail/redis": "workspace:*",
     "@eventrail/types": "workspace:*"
   },
   "devDependencies": {

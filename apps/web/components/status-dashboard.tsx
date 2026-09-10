@@ -3,7 +3,18 @@
 import type { HealthStatus } from "@eventrail/types";
 import { useCallback, useEffect, useState } from "react";
 
-const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4000";
+const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "";
+const incidentApi =
+  "https://api.github.com/repos/EcstaceeLOR/EventRail/issues?labels=incident&state=all&per_page=10";
+const incidentFeed = "https://github.com/EcstaceeLOR/EventRail/issues.atom?label=incident";
+type Incident = {
+  id: number;
+  number: number;
+  title: string;
+  state: "open" | "closed";
+  html_url: string;
+  created_at: string;
+};
 const services = [
   ["Public API", null],
   ["Market indexer", "rpc_lag_blocks"],
@@ -15,6 +26,8 @@ const services = [
 export function StatusDashboard() {
   const [health, setHealth] = useState<HealthStatus | null>(null);
   const [error, setError] = useState(false);
+  const [incidents, setIncidents] = useState<readonly Incident[] | null>(null);
+  const [incidentError, setIncidentError] = useState(false);
   const load = useCallback(async () => {
     setError(false);
     try {
@@ -26,12 +39,24 @@ export function StatusDashboard() {
       setError(true);
     }
   }, []);
+  const loadIncidents = useCallback(async () => {
+    setIncidentError(false);
+    try {
+      const response = await fetch(incidentApi, { headers: { accept: "application/vnd.github+json" } });
+      if (!response.ok) throw new Error("incident history unavailable");
+      setIncidents((await response.json()) as Incident[]);
+    } catch {
+      setIncidentError(true);
+      setIncidents(null);
+    }
+  }, []);
 
   useEffect(() => {
     void load();
+    void loadIncidents();
     const interval = window.setInterval(() => void load(), 30_000);
     return () => window.clearInterval(interval);
-  }, [load]);
+  }, [load, loadIncidents]);
 
   return (
     <section className="section-wrap page-section narrow-page" aria-live="polite">
@@ -98,6 +123,38 @@ export function StatusDashboard() {
           </button>
         </div>
       ) : null}
+      <section className="incident-history" aria-labelledby="incident-history-title">
+        <div className="panel-title">
+          <div>
+            <span className="eyebrow">Public communication</span>
+            <h2 id="incident-history-title">Incident history</h2>
+          </div>
+          <a href={incidentFeed}>Subscribe to updates</a>
+        </div>
+        {incidents?.length === 0 ? <p>No public incidents have been reported.</p> : null}
+        {incidents?.map((incident) => (
+          <article key={incident.id}>
+            <span
+              className={`activity-state activity-state--${incident.state === "open" ? "error" : "filled"}`}
+            >
+              {incident.state === "open" ? "Investigating" : "Resolved"}
+            </span>
+            <a href={incident.html_url} target="_blank" rel="noreferrer">
+              {incident.title}
+            </a>
+            <time>{new Date(incident.created_at).toLocaleDateString()}</time>
+          </article>
+        ))}
+        {incidentError ? (
+          <div className="data-state">
+            <span>History unavailable</span>
+            <p>Live component health above remains independent of the public incident archive.</p>
+            <button type="button" onClick={() => void loadIncidents()}>
+              Retry incident history
+            </button>
+          </div>
+        ) : null}
+      </section>
     </section>
   );
 }
