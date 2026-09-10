@@ -173,7 +173,7 @@ importers:
         version: link:../../packages/types
       '@somnia-chain/markets-sdk':
         specifier: 0.29.0
-        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+        version: 0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
       '@tanstack/react-query':
         specifier: 5.102.8
         version: 5.102.8(react@19.2.8)
@@ -274,10 +274,10 @@ importers:
         version: link:../types
       '@somnia-chain/markets-sdk':
         specifier: 0.29.0
-        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+        version: 0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
       graphql:
-        specifier: 16.11.0
-        version: 16.11.0
+        specifier: 17.0.2
+        version: 17.0.2
       viem:
         specifier: 2.56.3
         version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
@@ -362,10 +362,10 @@ importers:
         version: link:../types
       '@somnia-chain/markets-sdk':
         specifier: 0.29.0
-        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+        version: 0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
       graphql:
-        specifier: 16.11.0
-        version: 16.11.0
+        specifier: 17.0.2
+        version: 17.0.2
       viem:
         specifier: 2.56.3
         version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
@@ -428,10 +428,10 @@ importers:
         version: link:../../packages/types
       '@somnia-chain/markets-sdk':
         specifier: 0.29.0
-        version: 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
+        version: 0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))
       graphql:
-        specifier: 16.11.0
-        version: 16.11.0
+        specifier: 17.0.2
+        version: 17.0.2
       viem:
         specifier: 2.56.3
         version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
@@ -2041,9 +2041,9 @@ packages:
     resolution: {integrity: sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==}
     engines: {node: '>= 0.4'}
 
-  graphql@16.11.0:
-    resolution: {integrity: sha512-mS1lbMsxgQj6hge1XZ6p7GPhbrtFwUFYi3wRzXAC/FmYnyXMTvvI3td3rjmQ2u8ewXueaSvRPWaEcgVVOT9Jnw==}
-    engines: {node: ^12.22.0 || ^14.16.0 || ^16.0.0 || >=17.0.0}
+  graphql@17.0.2:
+    resolution: {integrity: sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ==}
+    engines: {node: ^22.0.0 || ^24.0.0 || ^25.0.0 || >=26.0.0}
 
   h3@1.15.11:
     resolution: {integrity: sha512-L3THSe2MPeBwgIZVSH5zLdBBU90TOxarvhK9d04IDY2AmVS8j2Jz2LIWtwsGOU3lu2I5jCN7FNvVfY2+XyF+mg==}
@@ -3008,8 +3008,8 @@ snapshots:
     dependencies:
       '@eventrail/core': file:packages/core
       '@eventrail/types': file:packages/types
-      '@somnia-chain/markets-sdk': 0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3))
-      graphql: 16.11.0
+      '@somnia-chain/markets-sdk': 0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3))
+      graphql: 17.0.2
       viem: 2.56.3(typescript@6.0.3)
     transitivePeerDependencies:
       - '@somnia-chain/reactivity'
@@ -3046,9 +3046,9 @@ snapshots:
       '@fastify/forwarded': 3.0.2
       ipaddr.js: 2.5.0
 
-  '@graphql-typed-document-node/core@3.2.0(graphql@16.11.0)':
+  '@graphql-typed-document-node/core@3.2.0(graphql@17.0.2)':
     dependencies:
-      graphql: 16.11.0
+      graphql: 17.0.2
 
   '@humanfs/core@0.19.2':
     dependencies:
@@ -4089,18 +4089,18 @@ snapshots:
       - fastestsmallesttextencoderdecoder
     optional: true
 
-  '@somnia-chain/markets-sdk@0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))':
+  '@somnia-chain/markets-sdk@0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3)(zod@4.5.4))':
     dependencies:
-      '@graphql-typed-document-node/core': 3.2.0(graphql@16.11.0)
+      '@graphql-typed-document-node/core': 3.2.0(graphql@17.0.2)
       viem: 2.56.3(typescript@6.0.3)(zod@4.5.4)
     optionalDependencies:
       react: 19.2.8
     transitivePeerDependencies:
       - graphql
 
-  '@somnia-chain/markets-sdk@0.29.0(graphql@16.11.0)(react@19.2.8)(viem@2.56.3(typescript@6.0.3))':
+  '@somnia-chain/markets-sdk@0.29.0(graphql@17.0.2)(react@19.2.8)(viem@2.56.3(typescript@6.0.3))':
     dependencies:
-      '@graphql-typed-document-node/core': 3.2.0(graphql@16.11.0)
+      '@graphql-typed-document-node/core': 3.2.0(graphql@17.0.2)
       viem: 2.56.3(typescript@6.0.3)
     optionalDependencies:
       react: 19.2.8
@@ -5280,7 +5280,7 @@ snapshots:
   gopd@1.2.0:
     optional: true
 
-  graphql@16.11.0: {}
+  graphql@17.0.2: {}
 
   h3@1.15.11:
     dependencies:
