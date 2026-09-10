@@ -2,8 +2,8 @@
 
 import type { HealthStatus } from "@eventrail/types";
 import { useCallback, useEffect, useState } from "react";
+import { browserGatewayUrl } from "../lib/gateway-routing";
 
-const gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "";
 const incidentApi =
   "https://api.github.com/repos/EcstaceeLOR/EventRail/issues?labels=incident&state=all&per_page=10";
 const incidentFeed = "https://github.com/EcstaceeLOR/EventRail/issues.atom?label=incident";
@@ -31,7 +31,7 @@ export function StatusDashboard() {
   const load = useCallback(async () => {
     setError(false);
     try {
-      const response = await fetch(`${gatewayUrl}/v1/health`, { cache: "no-store" });
+      const response = await fetch(`${browserGatewayUrl}/v1/health`, { cache: "no-store" });
       if (!response.ok) throw new Error("health unavailable");
       setHealth((await response.json()) as HealthStatus);
     } catch {
