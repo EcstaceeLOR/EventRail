@@ -5,6 +5,12 @@ import process from "node:process";
 const root = resolve(import.meta.dirname, "..");
 const workspaceGlobs = ["apps", "packages", "workers"];
 const requiredScripts = ["build", "typecheck", "test", "clean"];
+const publicPackages = new Set([
+  "@eventrail/types",
+  "@eventrail/platform",
+  "@eventrail/api-client",
+  "@eventrail/react",
+]);
 const manifests = [];
 
 for (const group of workspaceGlobs) {
@@ -27,7 +33,13 @@ for (const { path, manifest } of manifests) {
   } else {
     names.add(manifest.name);
   }
-  if (manifest.private !== true) errors.push(`${relativePath}: packages remain private until release review`);
+  if (publicPackages.has(manifest.name)) {
+    if (manifest.private !== false) errors.push(`${relativePath}: reviewed SDK package must be publishable`);
+    if (manifest.publishConfig?.access !== "public" || manifest.publishConfig?.provenance !== true) {
+      errors.push(`${relativePath}: public package must publish with public access and provenance`);
+    }
+  } else if (manifest.private !== true)
+    errors.push(`${relativePath}: non-release workspace must remain private`);
   for (const script of requiredScripts) {
     if (typeof manifest.scripts?.[script] !== "string")
       errors.push(`${relativePath}: missing ${script} script`);

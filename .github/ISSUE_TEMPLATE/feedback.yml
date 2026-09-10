@@ -1,0 +1,20 @@
+name: Product feedback
+description: Share a concrete EventRail workflow problem or adoption opportunity.
+title: "[Feedback]: "
+labels: [feedback]
+body:
+  - type: dropdown
+    id: surface
+    attributes: { label: Surface, options: [Consumer app, Developer portal, API or SDK, Embed, Operations] }
+    validations: { required: true }
+  - type: textarea
+    id: problem
+    attributes: { label: Problem, description: What were you trying to accomplish and what happened? }
+    validations: { required: true }
+  - type: textarea
+    id: impact
+    attributes: { label: Impact and frequency, description: Who is affected and how often? }
+    validations: { required: true }
+  - type: textarea
+    id: evidence
+    attributes: { label: Evidence, description: Add non-sensitive screenshots, links, or measurements. }

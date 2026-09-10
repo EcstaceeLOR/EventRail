@@ -29,9 +29,12 @@
     "infra:reset": "node scripts/local-infrastructure.mjs reset",
     "infra:status": "node scripts/local-infrastructure.mjs status",
     "infra:up": "node scripts/local-infrastructure.mjs up",
+    "deploy:validate": "node scripts/validate-deployment.mjs",
+    "smoke:production": "node scripts/production-smoke.mjs",
+    "release:validate": "node scripts/validate-release.mjs",
     "prepare": "simple-git-hooks",
     "typecheck": "turbo run typecheck",
-    "test": "node --test scripts/test/repository-policy.test.mjs && turbo run test",
+    "test": "node --test scripts/test/*.test.mjs && turbo run test",
     "test:critical-coverage": "node --experimental-test-coverage --test-coverage-include=packages/core/dist/**/*.js --test-coverage-include=packages/trading/dist/**/*.js --test-coverage-lines=80 --test packages/core/test/*.test.mjs packages/trading/test/*.test.mjs",
     "verify:gates": "node scripts/verify-quality-gates.mjs",
     "clean": "turbo run clean"

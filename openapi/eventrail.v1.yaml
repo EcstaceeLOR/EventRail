@@ -49,6 +49,25 @@ paths:
               schema: { $ref: "#/components/schemas/HealthStatus" }
         "4XX": { $ref: "#/components/responses/Error" }
         default: { $ref: "#/components/responses/Error" }
+  /v1/ready:
+    get:
+      summary: Check dependency readiness for rollout and traffic routing
+      tags: [System]
+      operationId: getReadiness
+      security: []
+      responses:
+        "200":
+          description: All required dependencies are ready
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+        "503":
+          description: One or more required dependencies are unavailable
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReadinessStatus" }
+        "4XX": { $ref: "#/components/responses/Error" }
+        default: { $ref: "#/components/responses/Error" }
   /v1/markets:
     get:
       summary: List event markets
@@ -639,3 +658,14 @@ components:
               code: { type: string, minLength: 1 }
               severity: { type: string, enum: [warning, critical] }
               message: { type: string, minLength: 1 }
+    ReadinessStatus:
+      type: object
+      additionalProperties: false
+      required: [status, service, timestamp, checks]
+      properties:
+        status: { type: string, enum: [ready, not_ready] }
+        service: { type: string, minLength: 1 }
+        timestamp: { type: string, format: date-time }
+        checks:
+          type: object
+          additionalProperties: { type: boolean }

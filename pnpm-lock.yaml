@@ -137,6 +137,9 @@ importers:
       fastify:
         specifier: 5.12.3
         version: 5.12.3
+      viem:
+        specifier: 2.56.3
+        version: 2.56.3(typescript@6.0.3)(zod@4.5.4)
       zod:
         specifier: 4.5.4
         version: 4.5.4
@@ -386,12 +389,18 @@ importers:
 
   workers/market-sync:
     dependencies:
+      '@eventrail/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@eventrail/database':
         specifier: workspace:*
         version: link:../../packages/database
       '@eventrail/dreamdex-adapter':
         specifier: workspace:*
         version: file:packages/dreamdex-adapter(react@19.2.8)(typescript@6.0.3)
+      '@eventrail/redis':
+        specifier: workspace:*
+        version: link:../../packages/redis
       '@eventrail/types':
         specifier: workspace:*
         version: link:../../packages/types
@@ -436,6 +445,9 @@ importers:
 
   workers/settlement:
     dependencies:
+      '@eventrail/config':
+        specifier: workspace:*
+        version: link:../../packages/config
       '@eventrail/database':
         specifier: workspace:*
         version: link:../../packages/database

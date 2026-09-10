@@ -2,6 +2,7 @@ node_modules/
 .next/
 dist/
 .turbo/
+.terraform/
 coverage/
 playwright-report/
 test-results/
@@ -13,3 +14,4 @@ test-results/
 .DS_Store
 Thumbs.db
 scripts/.quality-gate-*/
+.codex-bin/

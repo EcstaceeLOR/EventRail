@@ -18,7 +18,9 @@ export default defineConfig({
     video: "retain-on-failure",
   },
   webServer: {
-    command: process.env.CI ? "pnpm --filter @eventrail/web start" : "pnpm --filter @eventrail/web dev",
+    command: process.env.CI
+      ? "corepack pnpm --filter @eventrail/web start"
+      : "corepack pnpm --filter @eventrail/web dev",
     url: "http://127.0.0.1:3000",
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

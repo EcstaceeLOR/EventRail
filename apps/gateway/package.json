@@ -21,6 +21,7 @@
     "@eventrail/trading": "workspace:*",
     "@eventrail/types": "workspace:*",
     "fastify": "5.12.3",
+    "viem": "2.56.3",
     "zod": "4.5.4"
   },
   "devDependencies": {

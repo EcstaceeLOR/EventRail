@@ -6,7 +6,7 @@ import { TradeReceiptReconciler, type ChainReceipt } from "./index.js";
 
 const config = loadServerEnvironment(process.env);
 const database = createDatabasePool(config.DATABASE_URL);
-const redis = await connectEventRailRedis(config.REDIS_URL);
+const redis = await connectEventRailRedis(config.REDIS_URL, config.REDIS_CA_CERT);
 const repository = new PostgresTradeExecutionRepository(database);
 const events = new DreamDexEventBus(redis);
 const chain = createPublicClient({ transport: http(config.SOMNIA_RPC_URL) });

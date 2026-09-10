@@ -49,3 +49,28 @@ test("unknown routes return a standard 404", async () => {
   assert.equal(response.statusCode, 404);
   await app.close();
 });
+
+test("readiness removes unhealthy instances and CORS only reflects allowed origins", async () => {
+  const app = createGateway({
+    allowedOrigins: ["https://app.eventrail.test"],
+    readiness: async () => ({ postgres: true, redis: false, rpc: true }),
+  });
+  const ready = await app.inject({ method: "GET", url: "/v1/ready" });
+  assert.equal(ready.statusCode, 503);
+  assert.equal(ready.json().checks.redis, false);
+  const allowed = await app.inject({
+    method: "OPTIONS",
+    url: "/v1/data/markets",
+    headers: { origin: "https://app.eventrail.test" },
+  });
+  assert.equal(allowed.statusCode, 204);
+  assert.equal(allowed.headers["access-control-allow-origin"], "https://app.eventrail.test");
+  const denied = await app.inject({
+    method: "OPTIONS",
+    url: "/v1/data/markets",
+    headers: { origin: "https://attacker.test" },
+  });
+  assert.equal(denied.statusCode, 403);
+  assert.equal(denied.headers["access-control-allow-origin"], undefined);
+  await app.close();
+});

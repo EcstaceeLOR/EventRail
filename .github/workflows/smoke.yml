@@ -1,0 +1,35 @@
+name: Production smoke
+
+on:
+  schedule: [{ cron: "17 * * * *" }]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  smoke:
+    environment: production
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.2.2
+      - name: Run read-only production journey
+        env:
+          SMOKE_BASE_URL: ${{ vars.APP_URL }}
+          SMOKE_DOCS_URL: ${{ vars.DOCS_URL }}
+          SMOKE_EXAMPLES_URL: ${{ vars.EXAMPLES_URL }}
+          SMOKE_STATUS_URL: ${{ vars.STATUS_URL }}
+          SMOKE_ACCOUNT: ${{ vars.SMOKE_ACCOUNT }}
+          SMOKE_API_KEY: ${{ secrets.SMOKE_API_KEY }}
+          SMOKE_PLAN: "true"
+        run: node scripts/production-smoke.mjs
+      - name: Open public incident on failure
+        if: failure()
+        env: { GH_TOKEN: "${{ github.token }}" }
+        run: |
+          gh label create incident --color B60205 --description "Public service incident" --force
+          count="$(gh issue list --label incident --state open --search 'Production smoke test failure in:title' --json number --jq length)"
+          if [[ "$count" == "0" ]]; then
+            gh issue create --label incident --title "Production smoke test failure" --body "Automated checks failed in [run $GITHUB_RUN_ID]($GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID). The team is investigating."
+          fi

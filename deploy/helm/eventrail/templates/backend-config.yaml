@@ -1,0 +1,13 @@
+{{- if and .Values.ingress.enabled .Values.ingress.managedCertificate }}
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: {{ include "eventrail.fullname" . }}-gateway
+spec:
+  timeoutSec: 3600
+  connectionDraining: { drainingTimeoutSec: 30 }
+  healthCheck:
+    type: HTTP
+    requestPath: /v1/ready
+    port: {{ .Values.components.gateway.port }}
+{{- end }}

@@ -10,8 +10,7 @@ import {
   EventRailTradeSheet,
   useMarkets,
 } from "@eventrail/react";
-const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:4000";
-const apiKey = process.env.NEXT_PUBLIC_EVENTRAIL_API_KEY;
+const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "";
 const account = process.env.NEXT_PUBLIC_EXAMPLE_ACCOUNT ?? "";
 export function ExampleWidget({
   theme = EVENTRAIL_THEMES.midnight,
@@ -37,7 +36,7 @@ export function ExampleWidget({
     callbacks: { onTradePrepared: true, onTransactionSubmitted: true },
   };
   return (
-    <EventRailEmbedProvider baseUrl={baseUrl} {...(apiKey ? { apiKey } : {})} config={config}>
+    <EventRailEmbedProvider baseUrl={baseUrl} config={config}>
       <LiveExample mode={mode} />
     </EventRailEmbedProvider>
   );

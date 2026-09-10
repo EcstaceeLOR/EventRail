@@ -1,0 +1,83 @@
+environment: preview
+releaseVersion: development
+
+image:
+  repository: ghcr.io/ecstaceelor/eventrail
+  tag: development
+  pullPolicy: IfNotPresent
+
+runtimeSecretName: eventrail-preview-runtime
+imagePullSecrets: []
+
+config:
+  apiAuthRequired: "false"
+  transactionPlanningEnabled: "true"
+  workerIntervalMs: "5000"
+  corsAllowedOrigins: "https://app.eventrail.example,https://docs.eventrail.example,https://examples.eventrail.example"
+
+components:
+  gateway:
+    replicas: 2
+    port: 4000
+    public: true
+    healthPath: /v1/health
+    readinessPath: /v1/ready
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 1, memory: 512Mi } }
+  web:
+    replicas: 2
+    port: 3000
+    public: true
+    healthPath: /
+    readinessPath: /
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 1, memory: 512Mi } }
+  developer-portal:
+    replicas: 2
+    port: 3001
+    public: true
+    healthPath: /developers
+    readinessPath: /developers
+    resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 750m, memory: 384Mi } }
+  examples:
+    replicas: 2
+    port: 3002
+    public: true
+    healthPath: /
+    readinessPath: /
+    resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 750m, memory: 384Mi } }
+  market-sync:
+    replicas: 1
+    public: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 1, memory: 512Mi } }
+  receipts:
+    replicas: 2
+    public: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 1, memory: 512Mi } }
+  settlement:
+    replicas: 1
+    public: false
+    resources: { requests: { cpu: 100m, memory: 192Mi }, limits: { cpu: 1, memory: 512Mi } }
+  webhooks:
+    replicas: 2
+    public: false
+    resources: { requests: { cpu: 50m, memory: 128Mi }, limits: { cpu: 750m, memory: 384Mi } }
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 8
+  cpuUtilization: 70
+
+ingress:
+  enabled: true
+  className: gce
+  managedCertificate: true
+  hosts:
+    app: app.eventrail.example
+    api: api.eventrail.example
+    docs: docs.eventrail.example
+    examples: examples.eventrail.example
+    status: status.eventrail.example
+  tlsSecretName: eventrail-preview-tls
+
+serviceAccount:
+  annotations: {}

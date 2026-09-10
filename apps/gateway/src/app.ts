@@ -48,6 +48,8 @@ export interface PublicEventStream {
 export interface GatewayOptions {
   monitor?: OperationalMonitor;
   planningEnabled?: boolean;
+  allowedOrigins?: readonly string[];
+  readiness?: () => Promise<Record<string, boolean>>;
   apiAccess?: ApiAccessService;
   apiAuthRequired?: boolean;
   apiEnvironment?: ApiEnvironment;
@@ -250,6 +252,28 @@ export function createGateway(options: GatewayOptions = {}) {
   const principals = new WeakMap<object, ApiKeyRecord>();
 
   app.addHook("onRequest", async (request, reply) => {
+    if (request.method !== "OPTIONS") return;
+    const origin = request.headers.origin;
+    if (!origin || !options.allowedOrigins?.includes(origin)) {
+      return reply.code(403).send({ error: { code: "ORIGIN_DENIED", message: "Origin is not allowed." } });
+    }
+    return reply
+      .headers(corsHeaders(origin))
+      .header("access-control-allow-methods", "GET,POST,PUT,PATCH,DELETE,OPTIONS")
+      .header("access-control-allow-headers", "authorization,content-type,idempotency-key,last-event-id")
+      .code(204)
+      .send();
+  });
+
+  app.addHook("onSend", async (request, reply, payload) => {
+    const origin = request.headers.origin;
+    if (origin && options.allowedOrigins?.includes(origin)) reply.headers(corsHeaders(origin));
+    reply.header("x-content-type-options", "nosniff");
+    reply.header("referrer-policy", "no-referrer");
+    return payload;
+  });
+
+  app.addHook("onRequest", async (request, reply) => {
     const path = request.url.split("?")[0] ?? request.url;
     const planningRequest =
       request.method === "POST" &&
@@ -294,7 +318,12 @@ export function createGateway(options: GatewayOptions = {}) {
   app.addHook("onRequest", async (request, reply) => {
     if (!options.apiAccess) return;
     const publicOnboarding = request.method === "POST" && request.url.split("?")[0] === "/v1/integrators";
-    if (request.url.startsWith("/v1/health") || request.url.startsWith("/metrics") || publicOnboarding)
+    if (
+      request.url.startsWith("/v1/health") ||
+      request.url.startsWith("/v1/ready") ||
+      request.url.startsWith("/metrics") ||
+      publicOnboarding
+    )
       return;
     const management = request.url.startsWith("/v1/integrators/");
     if (!options.apiAuthRequired && !management) return;
@@ -326,6 +355,17 @@ export function createGateway(options: GatewayOptions = {}) {
         timestamp: new Date().toISOString(),
       },
   );
+
+  app.get("/v1/ready", async (_request, reply) => {
+    const checks = options.readiness ? await options.readiness() : { process: true };
+    const ready = Object.values(checks).every(Boolean);
+    return reply.code(ready ? 200 : 503).send({
+      status: ready ? "ready" : "not_ready",
+      service: "eventrail-gateway",
+      timestamp: new Date().toISOString(),
+      checks,
+    });
+  });
 
   app.get("/metrics", async (_request, reply) => {
     reply.type("text/plain; version=0.0.4");
@@ -830,6 +870,13 @@ export function createGateway(options: GatewayOptions = {}) {
   });
 
   return app;
+}
+
+function corsHeaders(origin: string) {
+  return {
+    "access-control-allow-origin": origin,
+    vary: "Origin",
+  };
 }
 
 export function formatSseRecord(record: EventBusRecord): string {
