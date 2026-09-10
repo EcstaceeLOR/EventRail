@@ -2,6 +2,10 @@
 
 EventRail is the non-custodial integration and trading layer for DreamDEX Event Contracts on Somnia. It combines a consumer trading experience with safe transaction planning, automatic market rollover, portfolio and claim tooling, a public API, and a React SDK.
 
+**Live application:** [eventrail.vercel.app](https://eventrail.vercel.app)
+
+The hosted frontend currently uses Somnia Shannon. Backend-dependent trading, portfolio, and analytics features will become available after the preview GCP gateway is provisioned.
+
 ## Workspace
 
 | Path                    | Purpose                                                                      |
