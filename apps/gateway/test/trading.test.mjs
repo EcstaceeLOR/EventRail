@@ -99,6 +99,29 @@ test("trading quote endpoint returns a source-bound, expiring executable quote",
   await app.close();
 });
 
+test("proxied quote requests do not pass Fastify's completed-body signal to upstream reads", async () => {
+  const signals = [];
+  const dataReader = reader();
+  for (const operation of ["getMarket", "getOrderBook", "getBookParameters"]) {
+    const original = dataReader[operation];
+    dataReader[operation] = async (...args) => {
+      signals.push(args.at(-1) instanceof AbortSignal ? args.at(-1) : undefined);
+      return original(...args);
+    };
+  }
+  const app = createGateway({ dataReader });
+
+  const response = await app.inject({
+    method: "POST",
+    url: "/v1/trading/quotes",
+    payload: { marketId, outcome: "up", side: "buy", mode: "quantity", amount: "100000" },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.deepEqual(signals, [undefined, undefined, undefined]);
+  await app.close();
+});
+
 test("empty books return an actionable conflict instead of a fabricated quote", async () => {
   const app = createGateway({ dataReader: reader([]) });
   const response = await app.inject({

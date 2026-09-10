@@ -577,7 +577,7 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/series", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { network } = EventQuerySchema.parse(request.query);
-    const markets = (await options.dataReader.listLiveMarkets(request.signal)).filter(
+    const markets = (await options.dataReader.listLiveMarkets()).filter(
       (market) => market.network === network,
     );
     return buildSeries(markets);
@@ -586,50 +586,48 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/markets", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { network } = EventQuerySchema.parse(request.query);
-    return (await options.dataReader.listLiveMarkets(request.signal)).filter(
-      (market) => market.network === network,
-    );
+    return (await options.dataReader.listLiveMarkets()).filter((market) => market.network === network);
   });
 
   app.get("/v1/data/markets/:marketId", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
-    const market = await options.dataReader.getMarket(marketId, request.signal);
+    const market = await options.dataReader.getMarket(marketId);
     return market ?? reply.code(404).send({ error: "Market not found" });
   });
 
   app.get("/v1/data/markets/:marketId/resolution", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
-    const resolution = await options.dataReader.getResolution(marketId, request.signal);
+    const resolution = await options.dataReader.getResolution(marketId);
     return resolution ?? reply.code(404).send({ error: "Market not found" });
   });
 
   app.get("/v1/data/markets/:marketId/book", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
-    const book = await options.dataReader.getOrderBook(marketId, 25, request.signal);
+    const book = await options.dataReader.getOrderBook(marketId, 25);
     return book ?? reply.code(404).send({ error: "Market not found" });
   });
 
   app.get("/v1/data/markets/:marketId/trades", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
-    return options.dataReader.getFills(marketId, { limit: 100, signal: request.signal });
+    return options.dataReader.getFills(marketId, { limit: 100 });
   });
 
   app.get("/v1/data/markets/:marketId/candles", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
     const { intervalSeconds } = CandleQuerySchema.parse(request.query);
-    return options.dataReader.getCandles(marketId, intervalSeconds, { limit: 500, signal: request.signal });
+    return options.dataReader.getCandles(marketId, intervalSeconds, { limit: 500 });
   });
 
   app.get("/v1/data/markets/:marketId/quote", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { marketId } = MarketParamsSchema.parse(request.params);
     const quote = QuoteQuerySchema.parse(request.query);
-    const book = await options.dataReader.getOrderBook(marketId, 100, request.signal);
+    const book = await options.dataReader.getOrderBook(marketId, 100);
     if (!book) return reply.code(404).send({ error: "Market not found" });
     return quoteExecutableDepth(book, quote);
   });
@@ -637,10 +635,14 @@ export function createGateway(options: GatewayOptions = {}) {
   app.post("/v1/trading/quotes", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const input = TradeQuoteRequestSchema.parse(request.body);
+    // Fastify's request signal follows IncomingMessage.close, which can fire
+    // once a proxied POST body is consumed even though the response is still
+    // being prepared. Adapter reads have their own bounded RPC resilience, so
+    // they must not inherit that prematurely-aborted signal.
     const [market, book, parameters] = await Promise.all([
-      options.dataReader.getMarket(input.marketId, request.signal),
-      options.dataReader.getOrderBook(input.marketId, 100, request.signal),
-      options.dataReader.getBookParameters(input.marketId, request.signal),
+      options.dataReader.getMarket(input.marketId),
+      options.dataReader.getOrderBook(input.marketId, 100),
+      options.dataReader.getBookParameters(input.marketId),
     ]);
     if (!market || !book || !parameters) return reply.code(404).send({ error: "Market not found" });
     try {
@@ -678,9 +680,9 @@ export function createGateway(options: GatewayOptions = {}) {
     }
     const input = TradePlanRequestSchema.parse(request.body);
     const [market, book, parameters] = await Promise.all([
-      options.dataReader.getMarket(input.quote.marketId, request.signal),
-      options.dataReader.getOrderBook(input.quote.marketId, 100, request.signal),
-      options.dataReader.getBookParameters(input.quote.marketId, request.signal),
+      options.dataReader.getMarket(input.quote.marketId),
+      options.dataReader.getOrderBook(input.quote.marketId, 100),
+      options.dataReader.getBookParameters(input.quote.marketId),
     ]);
     if (!market || !book || !parameters) return reply.code(404).send({ error: "Market not found" });
     if (market.poolAddress.toLowerCase() !== input.quote.poolAddress.toLowerCase()) {
@@ -746,14 +748,11 @@ export function createGateway(options: GatewayOptions = {}) {
   app.post("/v1/funding/routes", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX funding is unavailable" });
     const input = FundingRouteRequestSchema.parse(request.body);
-    const route = await options.dataReader.getUsdsoFundingRoute(
-      {
-        account: input.account as `0x${string}`,
-        targetOutputQuantity: input.targetOutputQuantity,
-        maxSlippageBps: input.maxSlippageBps,
-      },
-      request.signal,
-    );
+    const route = await options.dataReader.getUsdsoFundingRoute({
+      account: input.account as `0x${string}`,
+      targetOutputQuantity: input.targetOutputQuantity,
+      maxSlippageBps: input.maxSlippageBps,
+    });
     return (
       route ??
       reply.code(409).send({
@@ -780,7 +779,7 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/accounts/:account/positions", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account } = AccountParamsSchema.parse(request.params);
-    const snapshot = await options.dataReader.getPortfolioSnapshot(account, request.signal);
+    const snapshot = await options.dataReader.getPortfolioSnapshot(account);
     return options.portfolioStore
       ? options.portfolioStore.reconcile("shannon", account, snapshot)
       : snapshot.positions;
@@ -802,7 +801,7 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/accounts/:account/claims", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account } = AccountParamsSchema.parse(request.params);
-    return options.dataReader.getClaims(account, request.signal);
+    return options.dataReader.getClaims(account);
   });
 
   app.post("/v1/redemptions/plans", async (request, reply) => {
@@ -810,7 +809,7 @@ export function createGateway(options: GatewayOptions = {}) {
       return reply.code(503).send({ error: "Redemption planning is unavailable" });
     }
     const input = RedemptionPlanRequestSchema.parse(request.body);
-    const snapshot = await options.dataReader.getPortfolioSnapshot(input.account, request.signal);
+    const snapshot = await options.dataReader.getPortfolioSnapshot(input.account);
     const positions = snapshot.positions.filter(
       (position) => position.marketId.toLowerCase() === input.marketId.toLowerCase(),
     );
@@ -834,7 +833,7 @@ export function createGateway(options: GatewayOptions = {}) {
   app.get("/v1/data/accounts/:account/balances/:marketId", async (request, reply) => {
     if (!options.dataReader) return reply.code(503).send({ error: "DreamDEX data is unavailable" });
     const { account, marketId } = BalanceParamsSchema.parse(request.params);
-    const balances = await options.dataReader.getOutcomeBalances(account, marketId, request.signal);
+    const balances = await options.dataReader.getOutcomeBalances(account, marketId);
     return balances ?? reply.code(404).send({ error: "Market not found" });
   });
 
