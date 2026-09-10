@@ -47,3 +47,25 @@ test("SSE gateway resumes from Last-Event-ID", async () => {
   assert.match(response.body, /id: 123-0/);
   await app.close();
 });
+
+test("SSE gateway exposes CORS headers to an allowed browser origin", async () => {
+  const app = createGateway({
+    allowedOrigins: ["https://eventrail.vercel.app"],
+    eventStream: {
+      async *subscribe() {
+        yield record;
+      },
+    },
+  });
+  const response = await app.inject({
+    method: "GET",
+    url: "/v1/events?network=shannon",
+    headers: { origin: "https://eventrail.vercel.app" },
+  });
+
+  assert.equal(response.statusCode, 200);
+  assert.equal(response.headers["access-control-allow-origin"], "https://eventrail.vercel.app");
+  assert.equal(response.headers.vary, "Origin");
+  assert.equal(response.headers["x-content-type-options"], "nosniff");
+  await app.close();
+});
