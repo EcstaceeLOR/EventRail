@@ -67,3 +67,25 @@ test("stream reads order events by block and log while preserving recovery curso
   );
   assert.equal(resumed[0].cursor, "3-0");
 });
+
+test("new subscriptions start at the live stream tail", async () => {
+  const observedCursors = [];
+  const redis = new MemoryStreams();
+  redis.xRead = async ([{ key, id }]) => {
+    observedCursors.push(id);
+    return [
+      {
+        name: key,
+        messages: [{ id: "4-0", message: { event: JSON.stringify(event("live", "102", "0")) } }],
+      },
+    ];
+  };
+  const bus = new DreamDexEventBus(redis);
+  const subscription = bus.subscribe({ network: "shannon" });
+
+  const first = await subscription.next();
+
+  assert.equal(observedCursors[0], "$");
+  assert.equal(first.value.cursor, "4-0");
+  await subscription.return();
+});
