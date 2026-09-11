@@ -10,7 +10,10 @@ import { resolveBuilderAttribution, type BuilderCapability } from "@eventrail/pl
 import { encodeFunctionData, keccak256, stringToHex, type Address, type Hex } from "viem";
 
 const DEFAULT_ORDER_GAS = 10_000_000n;
-const DEFAULT_APPROVAL_GAS = 1_000_000n;
+// Shannon charges substantially more gas than a typical EVM chain for even a
+// plain ERC-20 approval. The live tUSDC approval currently estimates above
+// 1.3M gas, so keep enough headroom for both collateral and operator approvals.
+const DEFAULT_APPROVAL_GAS = 3_000_000n;
 
 export interface CreateTradePlanInput {
   idempotencyKey: string;

@@ -80,6 +80,7 @@ test("builds exact approval and DreamDEX IOC calldata without a signer", async (
   const approval = decodeFunctionData({ abi: erc20WriteAbi, data: plan.calls[0].data });
   assert.equal(approval.functionName, "approve");
   assert.deepEqual(approval.args, [poolAddress, 1082700n]);
+  assert.equal(plan.calls[0].gas, "3000000", "Shannon approval gas includes live-chain headroom");
   const order = decodeFunctionData({ abi: binaryPoolWriteAbi, data: plan.calls[1].data });
   assert.equal(order.functionName, "placeBinaryOrder");
   assert.equal(order.args[0], 0, "BUY_YES order kind");
@@ -142,5 +143,5 @@ test("builder approval calldata displays and approves the exact requested fee", 
 
 test("shared canonical plan-hash vector remains stable", async () => {
   const plan = await planner().create(baseInput);
-  assert.equal(plan.planHash, "0x6e31622ce0a1232b9f3d11f85d632e44580be03ade2e68f4ecaab921e8e6798b");
+  assert.equal(plan.planHash, "0x3e6372e00d7738d06389084940c9ae547568099436062c3bcfabb3dda461be7c");
 });
