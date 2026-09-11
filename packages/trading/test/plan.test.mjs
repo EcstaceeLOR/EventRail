@@ -108,6 +108,25 @@ test("idempotency returns the original plan and rejects conflicting intents", as
   );
 });
 
+test("rejects a DreamDEX zero-or-one probability before building wallet calldata", async () => {
+  await assert.rejects(
+    planner().create({
+      ...baseInput,
+      idempotencyKey: "invalid-boundary-price",
+      quote: { ...quote, limitPrice: "1000000" },
+    }),
+    /strictly between zero and one/,
+  );
+  await assert.rejects(
+    planner().create({
+      ...baseInput,
+      idempotencyKey: "invalid-down-boundary",
+      quote: { ...quote, outcome: "down", limitPrice: "1000000" },
+    }),
+    /strictly between zero and one/,
+  );
+});
+
 test("builder attribution is included only when the runtime cap and wallet approval cover the exact fee", async () => {
   const builder = `0x${"55".repeat(20)}`;
   const tagged = await planner().create({

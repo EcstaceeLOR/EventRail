@@ -118,6 +118,9 @@ export class TradePlanner {
     const one = 10n ** BigInt(input.quote.collateralDecimals);
     const yesTermsPrice =
       input.quote.outcome === "up" ? BigInt(input.quote.limitPrice) : one - BigInt(input.quote.limitPrice);
+    if (yesTermsPrice <= 0n || yesTermsPrice >= one) {
+      throw new RangeError("DreamDEX order price must be strictly between zero and one.");
+    }
     const side = sdkSide(input.quote.outcome, input.quote.side);
     // The quote only needs to remain fresh until this authoritative plan is
     // created. Give the wallet a separate signing window after that point; the

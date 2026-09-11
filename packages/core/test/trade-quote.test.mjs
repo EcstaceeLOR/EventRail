@@ -109,6 +109,24 @@ test("spend quotes never exceed the user's balance or budget", () => {
   assert.equal(BigInt(quote.quantity) % 100_000n, 0n);
 });
 
+test("quotes never emit DreamDEX's invalid zero-or-one probability boundary", () => {
+  assert.throws(
+    () =>
+      calculateTradeQuote(market, book([{ price: "1000000", quantity: "10000000" }]), {
+        ...policy,
+        mode: "spend",
+        amount: "1000000",
+      }),
+    (error) => error instanceof QuoteError && error.code === "INSUFFICIENT_LIQUIDITY",
+  );
+  const valid = calculateTradeQuote(market, book([{ price: "999000", quantity: "10000000" }]), {
+    ...policy,
+    mode: "spend",
+    amount: "1000000",
+  });
+  assert.equal(valid.limitPrice, "999000");
+});
+
 test("empty, thin, stale, near-expiry, and insufficient-balance quotes fail actionably", () => {
   assert.throws(
     () => calculateTradeQuote(market, book([]), policy),

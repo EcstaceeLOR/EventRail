@@ -96,6 +96,9 @@ export function calculateTradeQuote(
     throw new QuoteError("EMPTY_BOOK", "No executable liquidity is available for this outcome.", true);
   }
   const one = 10n ** BigInt(book.collateralDecimals);
+  if (tick >= one) {
+    throw new QuoteError("INVALID_INPUT", "The live tick size leaves no valid probability price.", false);
+  }
   const bestPrice = BigInt(levels[0].price);
   const unsnappedLimit =
     input.side === "buy"
@@ -103,7 +106,7 @@ export function calculateTradeQuote(
       : (bestPrice * BigInt(10_000 - maxSlippageBps)) / 10_000n;
   const limitPrice =
     input.side === "buy"
-      ? min(snapPrice(unsnappedLimit, tick, input.side), one)
+      ? min(snapPrice(unsnappedLimit, tick, input.side), one - tick)
       : snapPrice(unsnappedLimit, tick, input.side) === 0n
         ? tick
         : snapPrice(unsnappedLimit, tick, input.side);
