@@ -952,7 +952,6 @@ function assertQuoteStillExecutable(
   ] as const;
   if (
     refreshedSourceBlock < originalSourceBlock ||
-    refreshedSourceBlock - originalSourceBlock > 20n ||
     fields.some((field) => original[field] !== refreshed[field])
   ) {
     throw new QuoteError(

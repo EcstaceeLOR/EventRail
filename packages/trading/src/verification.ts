@@ -101,7 +101,14 @@ export async function verifyTradePlan(
     reject("MARKET_TOO_CLOSE_TO_EXPIRY", "This market is too close to lock. Open its successor.");
   }
   const quoteBlock = BigInt(plan.quote.sourceBlock);
-  if (sourceBlock > quoteBlock && sourceBlock - quoteBlock > (options.maxSourceBlockLag ?? 20n)) {
+  if (sourceBlock < quoteBlock) {
+    reject("SOURCE_BLOCK_TOO_OLD", "RPC state is behind this quote. Refresh before signing.");
+  }
+  if (
+    options.maxSourceBlockLag !== undefined &&
+    sourceBlock > quoteBlock &&
+    sourceBlock - quoteBlock > options.maxSourceBlockLag
+  ) {
     reject("SOURCE_BLOCK_TOO_OLD", "Chain state moved beyond this quote. Refresh before signing.");
   }
 

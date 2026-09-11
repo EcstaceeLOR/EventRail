@@ -141,6 +141,29 @@ test("recomputes the hash, rechecks binding/state, and simulates every exact cal
   assert.equal(chain.simulations[1].gas, BigInt(subject.calls[1].gas));
 });
 
+test("uses quote expiry instead of a fixed Shannon block-count window", async () => {
+  const subject = await plan();
+  const fastChain = reader({ getBlockNumber: async () => 10_000n });
+  const result = await verifyTradePlan(subject, {
+    expectedChainId: 50312,
+    account,
+    reader: fastChain,
+    now: new Date("2026-09-09T10:00:03.000Z"),
+  });
+  assert.equal(result.ok, true);
+
+  await assert.rejects(
+    verifyTradePlan(subject, {
+      expectedChainId: 50312,
+      account,
+      reader: fastChain,
+      now: new Date("2026-09-09T10:00:03.000Z"),
+      maxSourceBlockLag: 20n,
+    }),
+    (error) => error instanceof PlanVerificationError && error.code === "SOURCE_BLOCK_TOO_OLD",
+  );
+});
+
 test("changed critical fields, wrong accounts, rollover, and reverts fail closed with UI-safe reasons", async () => {
   const subject = await plan();
   await assert.rejects(

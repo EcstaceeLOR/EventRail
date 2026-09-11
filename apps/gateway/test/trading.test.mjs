@@ -134,16 +134,17 @@ test("empty books return an actionable conflict instead of a fabricated quote", 
   await app.close();
 });
 
-test("plan endpoint binds the account and current immutable market generation", async () => {
+test("plan endpoint accepts unchanged executable terms across fast Shannon block progress", async () => {
   const advancingReader = reader();
   const getOrderBook = advancingReader.getOrderBook;
-  let sourceBlock = 92n;
+  let sourceBlock = 100n;
   advancingReader.getOrderBook = async (...args) => {
     const book = await getOrderBook(...args);
-    sourceBlock += 8n;
+    const currentSourceBlock = sourceBlock;
+    sourceBlock += 1_000n;
     return {
       ...book,
-      freshness: { ...book.freshness, sourceBlock: sourceBlock.toString() },
+      freshness: { ...book.freshness, sourceBlock: currentSourceBlock.toString() },
     };
   };
   const quoteApp = createGateway({ dataReader: advancingReader });
