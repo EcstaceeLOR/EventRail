@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { EventRailClient, EventRailProtocolError } from "../dist/index.js";
+import { EventRailApiError, EventRailClient, EventRailProtocolError } from "../dist/index.js";
 
 const marketId = `0x${"ab".repeat(32)}`;
 const address = `0x${"11".repeat(20)}`;
@@ -69,6 +69,27 @@ test("invalid API payloads fail with a protocol error", async () => {
     fetch: async () => globalThis.Response.json({}),
   });
   await assert.rejects(client.getMarket(marketId), EventRailProtocolError);
+});
+
+test("structured API failures expose a readable message instead of raw JSON", async () => {
+  const client = new EventRailClient({
+    baseUrl: "https://eventrail.test",
+    fetch: async () =>
+      globalThis.Response.json(
+        {
+          error: {
+            code: "STALE_BOOK",
+            message: "The executable quote changed.",
+            recoverable: true,
+          },
+        },
+        { status: 409 },
+      ),
+  });
+  await assert.rejects(
+    client.getMarket(marketId),
+    (error) => error instanceof EventRailApiError && error.message === "The executable quote changed.",
+  );
 });
 
 test("default browser fetch keeps its required global receiver", async () => {

@@ -10,6 +10,7 @@ import { resolveBuilderAttribution, type BuilderCapability } from "@eventrail/pl
 import { encodeFunctionData, keccak256, stringToHex, type Address, type Hex } from "viem";
 
 const DEFAULT_ORDER_GAS = 10_000_000n;
+const DEFAULT_PLAN_TTL_MS = 30_000;
 // Shannon charges substantially more gas than a typical EVM chain for even a
 // plain ERC-20 approval. The live tUSDC approval currently estimates above
 // 1.3M gas, so keep enough headroom for both collateral and operator approvals.
@@ -118,7 +119,17 @@ export class TradePlanner {
     const yesTermsPrice =
       input.quote.outcome === "up" ? BigInt(input.quote.limitPrice) : one - BigInt(input.quote.limitPrice);
     const side = sdkSide(input.quote.outcome, input.quote.side);
-    const orderExpiryNs = BigInt(Date.parse(input.quote.expiresAt)) * 1_000_000n;
+    // The quote only needs to remain fresh until this authoritative plan is
+    // created. Give the wallet a separate signing window after that point; the
+    // IOC limit price still prevents a worse execution if depth moves.
+    const marketSafeExpiryMs =
+      Date.parse(input.quote.marketExpiresAt) - input.policy.minimumTimeRemainingSeconds * 1_000;
+    const planExpiryMs = Math.min(createdAt.getTime() + DEFAULT_PLAN_TTL_MS, marketSafeExpiryMs);
+    if (planExpiryMs <= createdAt.getTime()) {
+      throw new RangeError("The market is too close to lock for a safe signing window.");
+    }
+    const expiresAt = new Date(planExpiryMs).toISOString();
+    const orderExpiryNs = BigInt(planExpiryMs) * 1_000_000n;
     const attribution = resolveBuilderAttribution({
       requested: input.builder?.requested ?? false,
       ...(input.builder?.address ? { builder: input.builder.address } : {}),
@@ -147,7 +158,7 @@ export class TradePlanner {
       calls,
       summary: `${input.quote.side === "buy" ? "Buy" : "Sell"} ${input.quote.outcome.toUpperCase()} through DreamDEX IOC`,
       createdAt: createdAt.toISOString(),
-      expiresAt: input.quote.expiresAt,
+      expiresAt,
     };
     const planHash = computeTradePlanHash(unsigned);
     const plan = TradePlanSchema.parse({ ...unsigned, planId, planHash });

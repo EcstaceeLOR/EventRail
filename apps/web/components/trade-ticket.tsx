@@ -7,6 +7,11 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, type Address, type Hex } from "viem";
 import { usePublicClient, useSendTransaction } from "wagmi";
+import {
+  isNoWorseThanReviewed,
+  prepareExecutableTrade,
+  type TradeQuoteRequest,
+} from "../lib/trade-execution";
 import { getWalletAction } from "../lib/wallet-state";
 import { useWallet } from "./wallet-provider";
 
@@ -87,38 +92,24 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
       setError(null);
       setStage("quoting");
       const rawAmount = parseUnits(amount || "0", market.collateralDecimals).toString();
-      let availableBalance: string | undefined;
-      if (publicClient) {
-        availableBalance = (
-          await publicClient.readContract({
-            address: market.collateralAddress as Address,
-            abi: erc20Abi,
-            functionName: "balanceOf",
-            args: [wallet.address],
-          })
-        ).toString();
-      }
-      const nextQuote = await client.createTradeQuote({
-        marketId: market.marketId,
-        outcome,
-        side: "buy",
-        mode,
-        amount: rawAmount,
-        ...(availableBalance === undefined ? {} : { availableBalance }),
-        ...POLICY,
-      });
-      const nextPlan = await client.createTradePlan({
+      const availableBalance = publicClient
+        ? await readCollateralBalance(publicClient, market.collateralAddress as Address, wallet.address)
+        : undefined;
+      const prepared = await prepareExecutableTrade(client, {
         account: wallet.address,
-        idempotencyKey: globalThis.crypto.randomUUID(),
-        quote: nextQuote,
-        policy: {
+        quote: {
+          marketId: market.marketId,
+          outcome,
+          side: "buy",
+          mode,
+          amount: rawAmount,
+          ...(availableBalance === undefined ? {} : { availableBalance }),
           ...POLICY,
-          quoteSourceBlock: nextQuote.sourceBlock,
-          quoteExpiresAt: nextQuote.expiresAt,
         },
+        policy: POLICY,
       });
-      setQuote(nextQuote);
-      setPlan(nextPlan);
+      setQuote(prepared.quote);
+      setPlan(prepared.plan);
       setStage("review");
     } catch (cause) {
       fail(cause, "Unable to prepare an executable quote.");
@@ -129,21 +120,67 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
     if (!plan || !quote || !wallet.address || !publicClient) return;
     try {
       setError(null);
-      await assertPlanEnvelope(plan, wallet.address, publicClient.chain.id, client.getMarket.bind(client));
-      const [approval, order] = plan.calls;
-      if (!approval || !order) throw new Error("The trade plan is missing required calls.");
+      const reviewedPlan = plan;
+      const reviewedQuote = quote;
+      await assertPlanEnvelope(
+        reviewedPlan,
+        wallet.address,
+        publicClient.chain.id,
+        client.getMarket.bind(client),
+        false,
+      );
+      const [approval] = reviewedPlan.calls;
+      if (!approval) throw new Error("The trade plan is missing its approval call.");
 
       setStage("approving");
-      const needsApproval = await approvalRequired(plan, publicClient);
+      const needsApproval = await approvalRequired(reviewedPlan, publicClient);
       if (needsApproval) {
-        await publicClient.call(toSimulationCall(plan.account as Address, approval));
+        await publicClient.call(toSimulationCall(reviewedPlan.account as Address, approval));
         const approvalHash = await transaction.sendTransactionAsync(toWalletCall(approval));
         const approvalReceipt = await publicClient.waitForTransactionReceipt({ hash: approvalHash });
         if (approvalReceipt.status !== "success") throw new Error("USDso approval reverted.");
       }
 
       setStage("simulating");
-      await verifyTradePlan(plan, {
+      // Approval and wallet interaction can outlive the short-lived book quote.
+      // Re-plan from current authoritative depth before opening the order prompt.
+      const availableBalance = await readCollateralBalance(
+        publicClient,
+        reviewedPlan.collateralAddress as Address,
+        wallet.address,
+      );
+      const fresh = await prepareExecutableTrade(client, {
+        account: wallet.address,
+        quote: quoteRequestFrom(reviewedQuote, availableBalance),
+        policy: POLICY,
+      });
+      if (!isNoWorseThanReviewed(reviewedQuote, fresh.quote)) {
+        setQuote(fresh.quote);
+        setPlan(fresh.plan);
+        setStage("review");
+        toast({
+          title: "Price changed — approval is safe",
+          message: "Your USDso approval succeeded. Review the updated trade terms before submitting.",
+          tone: "warning",
+        });
+        return;
+      }
+
+      const activePlan = fresh.plan;
+      const [, order] = activePlan.calls;
+      if (!order) throw new Error("The refreshed trade plan is missing its DreamDEX order call.");
+      if (await approvalRequired(activePlan, publicClient)) {
+        throw new Error("USDso allowance changed before execution. Review the trade again.");
+      }
+      setQuote(fresh.quote);
+      setPlan(activePlan);
+      await assertPlanEnvelope(
+        activePlan,
+        wallet.address,
+        publicClient.chain.id,
+        client.getMarket.bind(client),
+      );
+      await verifyTradePlan(activePlan, {
         expectedChainId: publicClient.chain.id,
         account: wallet.address,
         reader: {
@@ -167,8 +204,8 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
       const orderHash = await transaction.sendTransactionAsync(toWalletCall(order));
       try {
         await client.submitTrade({
-          planId: plan.planId,
-          planHash: plan.planHash,
+          planId: activePlan.planId,
+          planHash: activePlan.planHash,
           account: wallet.address,
           transactionHash: orderHash,
         });
@@ -184,10 +221,12 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
       const receipt = await publicClient.waitForTransactionReceipt({ hash: orderHash });
       if (receipt.status !== "success") throw new Error("The DreamDEX order reverted on-chain.");
       setStage("reconciling");
-      const fills = await reconcileFills(client, plan.marketId, orderHash);
+      const fills = await reconcileFills(client, activePlan.marketId, orderHash);
       const filled = fills.reduce((sum, fill) => sum + BigInt(fill.quantity), BigInt(0));
       setExecution({ hash: orderHash, filled });
-      setStage(filled === BigInt(0) ? "unfilled" : filled < BigInt(plan.quantity) ? "partial" : "filled");
+      setStage(
+        filled === BigInt(0) ? "unfilled" : filled < BigInt(activePlan.quantity) ? "partial" : "filled",
+      );
     } catch (cause) {
       fail(cause, "The wallet-signed trade did not complete.");
     }
@@ -421,6 +460,7 @@ async function assertPlanEnvelope(
   account: Address,
   chainId: number,
   getMarket: (marketId: string) => Promise<NormalizedMarket>,
+  requireUnexpired = true,
 ) {
   const hashable = Object.fromEntries(
     Object.entries(plan).filter(([key]) => key !== "planId" && key !== "planHash"),
@@ -429,11 +469,40 @@ async function assertPlanEnvelope(
   if (plan.account.toLowerCase() !== account.toLowerCase())
     throw new Error("Trade plan belongs to another wallet.");
   if (plan.chainId !== chainId) throw new Error("Wallet network changed after review.");
-  if (Date.parse(plan.expiresAt) <= Date.now()) throw new Error("Trade plan expired before signing.");
+  if (requireUnexpired && Date.parse(plan.expiresAt) <= Date.now()) {
+    throw new Error("Trade plan expired before signing.");
+  }
   const current = await getMarket(plan.marketId);
   if (current.status !== "trading" || current.poolAddress.toLowerCase() !== plan.poolAddress.toLowerCase()) {
     throw new Error("Market locked or rolled over before signing.");
   }
+}
+
+async function readCollateralBalance(
+  publicClient: NonNullable<ReturnType<typeof usePublicClient>>,
+  collateralAddress: Address,
+  account: Address,
+) {
+  return (
+    await publicClient.readContract({
+      address: collateralAddress,
+      abi: erc20Abi,
+      functionName: "balanceOf",
+      args: [account],
+    })
+  ).toString();
+}
+
+function quoteRequestFrom(quote: TradeQuote, availableBalance: string): TradeQuoteRequest {
+  return {
+    marketId: quote.marketId,
+    outcome: quote.outcome,
+    side: quote.side,
+    mode: quote.mode,
+    amount: quote.requestedAmount,
+    availableBalance,
+    ...POLICY,
+  };
 }
 
 async function reconcileFills(client: ReturnType<typeof useEventRailClient>, marketId: string, hash: Hex) {

@@ -374,12 +374,20 @@ export class EventRailApiError extends Error {
     } catch {
       // Keep a non-JSON error body as text.
     }
-    const message =
-      typeof body === "object" && body !== null && "error" in body
-        ? JSON.stringify((body as { error: unknown }).error)
-        : text;
+    const message = apiErrorMessage(body, text);
     return new EventRailApiError(response.status, message, body);
   }
+}
+
+function apiErrorMessage(body: unknown, fallback: string): string {
+  if (typeof body !== "object" || body === null || !("error" in body)) return fallback;
+  const error = (body as { error: unknown }).error;
+  if (typeof error === "string") return error;
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = (error as { message: unknown }).message;
+    if (typeof message === "string") return message;
+  }
+  return JSON.stringify(error);
 }
 
 export class EventRailProtocolError extends Error {

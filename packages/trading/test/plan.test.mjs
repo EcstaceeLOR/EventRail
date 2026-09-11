@@ -86,7 +86,9 @@ test("builds exact approval and DreamDEX IOC calldata without a signer", async (
   assert.equal(order.args[0], 0, "BUY_YES order kind");
   assert.equal(order.args[1], 720000n);
   assert.equal(order.args[2], 1500000n);
+  assert.equal(order.args[3], BigInt(Date.parse("2026-09-09T10:00:31.000Z")) * 1_000_000n);
   assert.equal(order.args[4], 2, "DreamDEX immediate-or-cancel order type");
+  assert.equal(plan.expiresAt, "2026-09-09T10:00:31.000Z", "wallet gets a separate signing window");
   const hashable = Object.fromEntries(
     Object.entries(plan).filter(([key]) => key !== "planId" && key !== "planHash"),
   );
@@ -143,5 +145,5 @@ test("builder approval calldata displays and approves the exact requested fee", 
 
 test("shared canonical plan-hash vector remains stable", async () => {
   const plan = await planner().create(baseInput);
-  assert.equal(plan.planHash, "0x3e6372e00d7738d06389084940c9ae547568099436062c3bcfabb3dda461be7c");
+  assert.equal(plan.planHash, "0x394ed82128d311daa9861b523605c548e926b04dd99243502501178767e03c5a");
 });
