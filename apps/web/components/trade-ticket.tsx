@@ -4,7 +4,7 @@ import { Dialog, StatusBadge, useEventRailClient, useToast } from "@eventrail/re
 import { computeTradePlanHash, verifyTradePlan, type HashableTradePlan } from "@eventrail/trading";
 import type { NormalizedMarket, TradePlan, TradeQuote } from "@eventrail/types";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { erc20Abi, formatUnits, parseUnits, type Address, type Hex } from "viem";
 import { usePublicClient, useSendTransaction } from "wagmi";
 import {
@@ -55,7 +55,6 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
   const [quote, setQuote] = useState<TradeQuote | null>(null);
   const [plan, setPlan] = useState<TradePlan | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [secondsLeft, setSecondsLeft] = useState(0);
   const [execution, setExecution] = useState<{ hash: Hex; filled: bigint } | null>(null);
   const displayPrice = outcome === "up" ? yesPrice : noPrice;
   const numericAmount = Number(amount) || 0;
@@ -63,23 +62,6 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
     () => (displayPrice > 0 ? numericAmount / displayPrice : 0),
     [displayPrice, numericAmount],
   );
-
-  useEffect(() => {
-    if (!quote) return;
-    const update = () =>
-      setSecondsLeft(Math.max(0, Math.ceil((Date.parse(quote.expiresAt) - Date.now()) / 1_000)));
-    update();
-    const timer = setInterval(update, 250);
-    return () => clearInterval(timer);
-  }, [quote]);
-
-  useEffect(() => {
-    if (secondsLeft !== 0 || stage !== "review") return;
-    setQuote(null);
-    setPlan(null);
-    setStage("editing");
-    setError("Quote expired. Review the refreshed market before continuing.");
-  }, [secondsLeft, stage]);
 
   async function prepareTrade() {
     if (walletAction === "connect") return wallet.openWallet();
@@ -348,8 +330,8 @@ export function TradeTicket({ yesPrice, noPrice, market }: Readonly<TradeTicketP
         {quote && plan ? (
           <div className="trade-review">
             <div className="review-countdown">
-              <StatusBadge tone={secondsLeft <= 3 ? "warning" : "success"}>{secondsLeft}s</StatusBadge>
-              <span>quote validity</span>
+              <StatusBadge tone="success">Protected</StatusBadge>
+              <span>fresh quote checked again before signing</span>
             </div>
             <dl>
               <div>
