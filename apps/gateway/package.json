@@ -20,9 +20,9 @@
     "@eventrail/redis": "workspace:*",
     "@eventrail/trading": "workspace:*",
     "@eventrail/types": "workspace:*",
-    "fastify": "5.12.3",
-    "viem": "2.56.3",
-    "zod": "4.5.4"
+    "fastify": "5.12.5",
+    "viem": "2.56.8",
+    "zod": "4.6.5"
   },
   "devDependencies": {
     "@types/node": "26.5.0",
