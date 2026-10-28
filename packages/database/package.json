@@ -23,7 +23,7 @@
   "dependencies": {
     "@eventrail/platform": "workspace:*",
     "@eventrail/types": "workspace:*",
-    "pg": "8.23.0"
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",
